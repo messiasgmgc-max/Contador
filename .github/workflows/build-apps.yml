@@ -1,0 +1,48 @@
+﻿name: Build Android APK & Windows EXE
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Compilar APK Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar build web do projeto
+        run: npm run build
+
+      - name: Sincronizar Capacitor com a pasta mobile
+        run: npx cap sync
+
+      - name: Dar permissão de execução ao Gradle
+        run: chmod +x ./mobile/gradlew
+
+      - name: Compilar APK Debug
+        run: cd mobile && ./gradlew assembleDebug
+
+      - name: Upload do APK gerado como Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FluxoFinanceiro-Android-APK
+          path: mobile/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

@@ -26,3 +26,8 @@ dist-ssr
 .vercel
 .env
 .env*.local
+desktop/dist
+dist-electron
+mobile/.gradle
+mobile/app/build
+mobile/build

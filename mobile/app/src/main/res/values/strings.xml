@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Fluxo Financeiro</string>
+    <string name="title_activity_main">Fluxo Financeiro</string>
+    <string name="package_name">com.fluxofinanceiro.app</string>
+    <string name="custom_url_scheme">com.fluxofinanceiro.app</string>
+</resources>
