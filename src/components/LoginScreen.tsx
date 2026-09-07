@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import type { UserProfile } from '../types/finance';
-import { Wallet, UserPlus, LogIn, Shield, Users, Check, Sparkles } from 'lucide-react';
+import { Wallet, UserPlus, LogIn, Shield, Users, Check, Sparkles, Edit3 } from 'lucide-react';
 
 interface LoginScreenProps {
   users: UserProfile[];
   onSelectUser: (user: UserProfile) => void;
   onCreateUser: (name: string, color: string) => Promise<UserProfile | null>;
+  onUpdateUser?: (id: string, name: string) => Promise<boolean>;
   isLoading: boolean;
 }
 
@@ -21,6 +22,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   users,
   onSelectUser,
   onCreateUser,
+  onUpdateUser,
   isLoading,
 }) => {
   const [activeTab, setActiveTab] = useState<'select' | 'create'>('select');
@@ -28,6 +30,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [selectedColor, setSelectedColor] = useState('blue');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,30 +152,85 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               ) : (
                 <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
                   {users.map((u) => (
-                    <button
+                    <div
                       key={u.id}
-                      onClick={() => onSelectUser(u)}
-                      className="w-full flex items-center justify-between p-3.5 rounded-2xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 transition-all text-left group cursor-pointer shadow-xs active:scale-[0.99]"
+                      className="w-full flex items-center justify-between p-3.5 rounded-2xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/30 transition-all text-left group shadow-xs"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl ${getBadgeStyle(u.avatarColor)} text-white flex items-center justify-center font-bold text-base shadow-xs`}>
-                          {u.name.charAt(0).toUpperCase()}
+                      {editingUserId === u.id ? (
+                        <div className="flex items-center gap-2 w-full">
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="flex-1 bg-white border border-blue-500 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:outline-none"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!editName.trim() || !onUpdateUser) return;
+                              await onUpdateUser(u.id, editName.trim());
+                              setEditingUserId(null);
+                            }}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                          >
+                            Salvar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingUserId(null)}
+                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs cursor-pointer"
+                          >
+                            ✕
+                          </button>
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
-                            {u.name}
-                          </p>
-                          <p className="text-[11px] text-slate-400">
-                            {u.isDefault ? 'Perfil Principal' : 'Conta Compartilhada'}
-                          </p>
-                        </div>
-                      </div>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onSelectUser(u)}
+                            className="flex items-center gap-3 flex-1 text-left cursor-pointer"
+                          >
+                            <div className={`w-10 h-10 rounded-xl ${getBadgeStyle(u.avatarColor)} text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0`}>
+                              {u.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
+                                {u.name}
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                {u.isDefault ? 'Perfil Principal' : 'Conta Compartilhada'}
+                              </p>
+                            </div>
+                          </button>
 
-                      <div className="flex items-center gap-1 text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span>Acessar</span>
-                        <LogIn className="w-3.5 h-3.5" />
-                      </div>
-                    </button>
+                          <div className="flex items-center gap-1.5">
+                            {onUpdateUser && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingUserId(u.id);
+                                  setEditName(u.name);
+                                }}
+                                title="Editar nome desta conta"
+                                className="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => onSelectUser(u)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                            >
+                              <span>Entrar</span>
+                              <LogIn className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}

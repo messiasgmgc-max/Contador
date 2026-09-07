@@ -171,6 +171,29 @@ export function useFinance() {
     }
   };
 
+  // Atualizar/Editar Nome do Usuário no Supabase
+  const updateUser = async (id: string, name: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('finance_users')
+        .update({ name: name.trim() })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Erro ao atualizar usuário:', error);
+        return false;
+      }
+
+      setUsers((prev) =>
+        prev.map((u) => (u.id === id ? { ...u, name: name.trim() } : u))
+      );
+      return true;
+    } catch (e) {
+      console.error('Erro em updateUser:', e);
+      return false;
+    }
+  };
+
   // Filtragem conforme o usuário selecionado no painel
   const displayedIncomes = activeUserId === 'ALL'
     ? incomes
@@ -227,10 +250,10 @@ export function useFinance() {
       const recLabel = item.isRecurring
         ? item.recurrence === 'monthly' ? ' [Todo Mês]' : ` [Sem. ${wk}]`
         : '';
+      const userTag = user?.name ? ` [${user.name}]` : (item.userName ? ` [${item.userName}]` : '');
       return {
-        user_id: item.userId || null,
-        user_name: user?.name || item.userName || null,
-        description: `${item.description}${recLabel}`,
+        user_id: null,
+        description: `${item.description}${userTag}${recLabel}`,
         amount: item.amount,
         expected_date: item.expectedDate,
         cycle_week: wk,
@@ -253,8 +276,8 @@ export function useFinance() {
       if (data) {
         const newItems: IncomeItem[] = data.map((d: any) => ({
           id: d.id,
-          userId: d.user_id,
-          userName: d.user_name,
+          userId: item.userId || d.user_id,
+          userName: user?.name || item.userName,
           description: d.description,
           amount: Number(d.amount),
           expectedDate: d.expected_date,
@@ -309,11 +332,11 @@ export function useFinance() {
       const recLabel = item.isRecurring
         ? item.recurrence === 'monthly' ? ' [Todo Mês]' : ` [Sem. ${wk}]`
         : '';
+      const userTag = user?.name ? ` [${user.name}]` : (item.userName ? ` [${item.userName}]` : '');
       return {
-        user_id: item.userId || null,
-        user_name: user?.name || item.userName || null,
+        user_id: null,
         creditor: item.creditor,
-        description: `${item.description || 'Parcelamento'}${recLabel}`,
+        description: `${item.description || 'Parcelamento'}${userTag}${recLabel}`,
         total_amount: item.totalAmount,
         installment_amount: item.installmentAmount,
         current_installment: item.currentInstallment,
@@ -338,8 +361,8 @@ export function useFinance() {
       if (data) {
         const newItems: DebtItem[] = data.map((d: any) => ({
           id: d.id,
-          userId: d.user_id,
-          userName: d.user_name,
+          userId: item.userId || d.user_id,
+          userName: user?.name || item.userName,
           creditor: d.creditor,
           description: d.description || '',
           totalAmount: Number(d.total_amount || 0),
@@ -361,17 +384,16 @@ export function useFinance() {
   const payDebtInstallment = async (id: string) => {
     const target = debts.find((d) => d.id === id);
     if (!target) return;
+
     const nextInstallment = target.currentInstallment + 1;
     const isCompleted = nextInstallment > target.totalInstallments;
-    const newStatus = isCompleted ? 'Pago' : target.status;
-    const finalInstallment = isCompleted ? target.totalInstallments : nextInstallment;
 
     try {
       const { error } = await supabase
         .from('finance_debts')
         .update({
-          current_installment: finalInstallment,
-          status: newStatus,
+          current_installment: isCompleted ? target.totalInstallments : nextInstallment,
+          status: isCompleted ? 'Pago' : 'Pendente',
         })
         .eq('id', id);
 
@@ -381,8 +403,8 @@ export function useFinance() {
             d.id === id
               ? {
                   ...d,
-                  currentInstallment: finalInstallment,
-                  status: newStatus,
+                  currentInstallment: isCompleted ? d.totalInstallments : nextInstallment,
+                  status: isCompleted ? 'Pago' : 'Pendente',
                 }
               : d
           )
@@ -417,10 +439,10 @@ export function useFinance() {
       const recLabel = item.isRecurring
         ? item.recurrence === 'monthly' ? ' [Todo Mês]' : ` [Sem. ${wk}]`
         : '';
+      const userTag = user?.name ? ` [${user.name}]` : (item.userName ? ` [${item.userName}]` : '');
       return {
-        user_id: item.userId || null,
-        user_name: user?.name || item.userName || null,
-        description: `${item.description}${recLabel}`,
+        user_id: null,
+        description: `${item.description}${userTag}${recLabel}`,
         amount: item.amount,
         date: item.date,
         cycle_week: wk,
@@ -444,8 +466,8 @@ export function useFinance() {
       if (data) {
         const newItems: ExpenseItem[] = data.map((d: any) => ({
           id: d.id,
-          userId: d.user_id,
-          userName: d.user_name,
+          userId: item.userId || d.user_id,
+          userName: user?.name || item.userName,
           description: d.description,
           amount: Number(d.amount),
           date: d.date,
@@ -493,6 +515,7 @@ export function useFinance() {
     activeUserId,
     setActiveUserId,
     addUser,
+    updateUser,
     deleteUser,
     cycle: { currentWeek },
     setCycle: (c: { currentWeek: number }) => setCurrentWeek(c.currentWeek),

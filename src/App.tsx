@@ -5,7 +5,6 @@ import { CashflowSummary } from './components/CashflowSummary';
 import { IncomeManager } from './components/IncomeManager';
 import { DebtManager } from './components/DebtManager';
 import { ExpenseManager } from './components/ExpenseManager';
-import { UserManager } from './components/UserManager';
 import { LoginScreen } from './components/LoginScreen';
 import type { WeekNumber, UserProfile } from './types/finance';
 import { 
@@ -16,16 +15,16 @@ import {
   Layers,
   RefreshCw,
   Calendar,
-  LogOut
+  LogOut,
+  Edit3
 } from 'lucide-react';
 
 function App() {
   const { 
     users,
-    activeUserId,
     setActiveUserId,
     addUser,
-    deleteUser,
+    updateUser,
     cycle, 
     setCycle, 
     incomes, 
@@ -44,6 +43,8 @@ function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<WeekNumber | 'ALL'>('ALL');
   const [activeTab, setActiveTab] = useState<'geral' | 'receitas' | 'dividas' | 'gastos'>('geral');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [newAccountName, setNewAccountName] = useState('');
 
   const handleLogin = (user: UserProfile) => {
     setCurrentUser(user);
@@ -55,6 +56,16 @@ function App() {
     setActiveUserId('ALL');
   };
 
+  const handleUpdateAccountName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !newAccountName.trim()) return;
+    const success = await updateUser(currentUser.id, newAccountName.trim());
+    if (success) {
+      setCurrentUser({ ...currentUser, name: newAccountName.trim() });
+      setShowEditModal(false);
+    }
+  };
+
   // Se o usuário ainda não logou, mostra a tela de login/criação de conta
   if (!currentUser) {
     return (
@@ -62,6 +73,7 @@ function App() {
         users={users}
         onSelectUser={handleLogin}
         onCreateUser={addUser}
+        onUpdateUser={updateUser}
         isLoading={isLoading}
       />
     );
@@ -96,9 +108,20 @@ function App() {
                   100% Online
                 </span>
               </div>
-              <p className="text-[11px] sm:text-xs text-slate-500 truncate max-w-[180px] sm:max-w-none">
-                Conectado como: <strong className="text-slate-800">{currentUser.name}</strong>
-              </p>
+              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500">
+                <span>Conta:</span>
+                <strong className="text-slate-900 font-bold">{currentUser.name}</strong>
+                <button
+                  onClick={() => {
+                    setNewAccountName(currentUser.name);
+                    setShowEditModal(true);
+                  }}
+                  title="Editar nome da conta"
+                  className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -147,6 +170,57 @@ function App() {
         </div>
       </header>
 
+      {/* Modal Editar Nome da Conta */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-w-sm w-full space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-blue-600" />
+                <span>Editar Nome da Conta</span>
+              </h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateAccountName} className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Novo Nome:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newAccountName}
+                  onChange={(e) => setNewAccountName(e.target.value)}
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none shadow-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-xs"
+                >
+                  Salvar Alteração
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
         
@@ -160,27 +234,6 @@ function App() {
           selectedWeek={selectedWeek}
           onSelectWeek={handleWeekSelection}
         />
-
-        {/* Seletor e Gestão de Usuários / Contas Compartilhadas */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Visualização de Contas
-              </h2>
-              <p className="text-xs text-slate-400">
-                Alterne entre ver as finanças de todos juntos ou de uma pessoa específica
-              </p>
-            </div>
-            <UserManager
-              users={users}
-              activeUserId={activeUserId}
-              onSelectUser={setActiveUserId}
-              onAddUser={addUser}
-              onDeleteUser={deleteUser}
-            />
-          </div>
-        </div>
 
         {/* Barra de Filtro e Abas no Desktop / Tablet */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
