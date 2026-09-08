@@ -40,9 +40,12 @@ jobs:
       - name: Compilar APK Debug
         run: cd mobile && ./gradlew assembleDebug
 
+      - name: Renomear APK para FluxoFinanceiro.apk
+        run: cp mobile/app/build/outputs/apk/debug/app-debug.apk ./FluxoFinanceiro.apk
+
       - name: Upload do APK gerado como Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FluxoFinanceiro-Android-APK
-          path: mobile/app/build/outputs/apk/debug/app-debug.apk
+          path: ./FluxoFinanceiro.apk
           retention-days: 30
