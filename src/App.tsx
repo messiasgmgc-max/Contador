@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useFinance } from './hooks/useFinance';
 import { CycleTimeline } from './components/CycleTimeline';
 import { CashflowSummary } from './components/CashflowSummary';
@@ -39,30 +39,61 @@ function App() {
     actions 
   } = useFinance();
 
-  // Usuário autenticado na sessão atual (in-memory)
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  // Usuário autenticado na sessão atual (persistido em localStorage)
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('finance_session_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [selectedWeek, setSelectedWeek] = useState<WeekNumber | 'ALL'>('ALL');
   const [activeTab, setActiveTab] = useState<'geral' | 'receitas' | 'dividas' | 'gastos'>('geral');
   const [showEditModal, setShowEditModal] = useState(false);
   const [newAccountName, setNewAccountName] = useState('');
+  const [newAccountPassword, setNewAccountPassword] = useState('');
+
+  // Manter activeUserId sincronizado com currentUser se logado
+  useEffect(() => {
+    if (currentUser) {
+      setActiveUserId(currentUser.id);
+      // Se a lista de usuários no Supabase atualizar, sincronizar dados do currentUser
+      const updatedUser = users.find((u) => u.id === currentUser.id);
+      if (updatedUser && (updatedUser.name !== currentUser.name || updatedUser.avatarColor !== currentUser.avatarColor || updatedUser.passwordHash !== currentUser.passwordHash)) {
+        setCurrentUser(updatedUser);
+        localStorage.setItem('finance_session_user', JSON.stringify(updatedUser));
+      }
+    }
+  }, [currentUser, users, setActiveUserId]);
 
   const handleLogin = (user: UserProfile) => {
     setCurrentUser(user);
     setActiveUserId(user.id);
+    localStorage.setItem('finance_session_user', JSON.stringify(user));
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     setActiveUserId('ALL');
+    localStorage.removeItem('finance_session_user');
   };
 
-  const handleUpdateAccountName = async (e: React.FormEvent) => {
+  const handleUpdateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !newAccountName.trim()) return;
-    const success = await updateUser(currentUser.id, newAccountName.trim());
+    const pwdToSave = newAccountPassword.trim() ? newAccountPassword.trim() : currentUser.passwordHash;
+    const success = await updateUser(currentUser.id, newAccountName.trim(), pwdToSave);
     if (success) {
-      setCurrentUser({ ...currentUser, name: newAccountName.trim() });
+      const updated = { 
+        ...currentUser, 
+        name: newAccountName.trim(),
+        passwordHash: pwdToSave
+      };
+      setCurrentUser(updated);
+      localStorage.setItem('finance_session_user', JSON.stringify(updated));
       setShowEditModal(false);
+      setNewAccountPassword('');
     }
   };
 
@@ -170,14 +201,14 @@ function App() {
         </div>
       </header>
 
-      {/* Modal Editar Nome da Conta */}
+      {/* Modal Editar Perfil / Senha */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-w-sm w-full space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Edit3 className="w-4 h-4 text-blue-600" />
-                <span>Editar Nome da Conta</span>
+                <span>Configurações da Conta</span>
               </h3>
               <button
                 onClick={() => setShowEditModal(false)}
@@ -187,10 +218,10 @@ function App() {
               </button>
             </div>
 
-            <form onSubmit={handleUpdateAccountName} className="space-y-3">
+            <form onSubmit={handleUpdateAccount} className="space-y-3">
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Novo Nome:
+                  Nome do Perfil:
                 </label>
                 <input
                   type="text"
@@ -199,6 +230,22 @@ function App() {
                   onChange={(e) => setNewAccountName(e.target.value)}
                   className="w-full bg-white border border-slate-300 focus:border-blue-600 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none shadow-xs"
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Senha de Acesso:
+                </label>
+                <input
+                  type="password"
+                  placeholder={currentUser?.passwordHash ? 'Nova senha (deixe vazio para manter)' : 'Definir uma senha de acesso'}
+                  value={newAccountPassword}
+                  onChange={(e) => setNewAccountPassword(e.target.value)}
+                  className="w-full bg-white border border-slate-300 focus:border-blue-600 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none shadow-xs"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {currentUser?.passwordHash ? 'Essa senha será exigida sempre ao logar neste perfil.' : 'Proteja seu perfil definindo uma senha ou PIN.'}
+                </p>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -213,7 +260,7 @@ function App() {
                   type="submit"
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-xs"
                 >
-                  Salvar Alteração
+                  Salvar Alterações
                 </button>
               </div>
             </form>

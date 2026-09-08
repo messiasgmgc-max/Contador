@@ -7,6 +7,7 @@ export interface UserProfile {
   name: string;
   avatarColor: string; // Ex: 'blue', 'purple', 'emerald', 'amber', 'rose'
   isDefault?: boolean;
+  passwordHash?: string;
 }
 
 export interface IncomeItem {

@@ -24,15 +24,55 @@ export function useFinance() {
         .select('*')
         .order('created_at', { ascending: true });
 
+      let loadedUsers: UserProfile[] = [];
       if (!userErr && userData) {
-        const mappedUsers: UserProfile[] = userData.map((u: any) => ({
-          id: u.id,
-          name: u.name,
-          avatarColor: u.avatar_color || 'blue',
-          isDefault: u.is_default,
-        }));
-        setUsers(mappedUsers);
+        loadedUsers = userData.map((u: any) => {
+          // Extrair cor e senha codificada (formato: "cor:::hash" ou apenas "cor")
+          const rawColor = u.avatar_color || 'blue';
+          let avatarColor = rawColor;
+          let passwordHash: string | undefined = undefined;
+
+          if (rawColor.includes(':::')) {
+            const parts = rawColor.split(':::');
+            avatarColor = parts[0] || 'blue';
+            passwordHash = parts.slice(1).join(':::');
+          }
+
+          return {
+            id: u.id,
+            name: u.name,
+            avatarColor,
+            passwordHash,
+            isDefault: u.is_default,
+          };
+        });
+        setUsers(loadedUsers);
       }
+
+      // Função auxiliar para associar um item ao usuário correto mesmo se user_id for null
+      const resolveUserForItem = (userId: string | null, description?: string, userName?: string) => {
+        if (userId) {
+          const directMatch = loadedUsers.find((u) => u.id === userId);
+          if (directMatch) return { userId: directMatch.id, userName: directMatch.name };
+        }
+        if (userName) {
+          const matchByName = loadedUsers.find((u) => u.name.trim().toLowerCase() === userName.trim().toLowerCase());
+          if (matchByName) return { userId: matchByName.id, userName: matchByName.name };
+        }
+        if (description) {
+          // Procura [NomeDoUsuario] na descrição
+          for (const u of loadedUsers) {
+            if (description.includes(`[${u.name}]`)) {
+              return { userId: u.id, userName: u.name };
+            }
+          }
+        }
+        // Se só existe 1 usuário cadastrado ou default, ou fallback para userId
+        if (loadedUsers.length === 1) {
+          return { userId: loadedUsers[0].id, userName: loadedUsers[0].name };
+        }
+        return { userId: userId || undefined, userName: userName || undefined };
+      };
 
       // 2. Recebimentos
       const { data: incData, error: incErr } = await supabase
@@ -41,18 +81,21 @@ export function useFinance() {
         .order('expected_date', { ascending: true });
 
       if (!incErr && incData) {
-        const mapped: IncomeItem[] = incData.map((d: any) => ({
-          id: d.id,
-          userId: d.user_id,
-          userName: d.user_name,
-          description: d.description,
-          amount: Number(d.amount),
-          expectedDate: d.expected_date,
-          week: d.cycle_week || 1,
-          category: d.category,
-          received: d.received,
-          isRecurring: d.description?.includes('[Recorrente]') || d.description?.includes('[Todo Mês]'),
-        }));
+        const mapped: IncomeItem[] = incData.map((d: any) => {
+          const resolved = resolveUserForItem(d.user_id, d.description, d.user_name);
+          return {
+            id: d.id,
+            userId: resolved.userId,
+            userName: resolved.userName,
+            description: d.description,
+            amount: Number(d.amount),
+            expectedDate: d.expected_date,
+            week: d.cycle_week || 1,
+            category: d.category,
+            received: d.received,
+            isRecurring: d.description?.includes('[Recorrente]') || d.description?.includes('[Todo Mês]'),
+          };
+        });
         setIncomes(mapped);
       }
 
@@ -63,21 +106,24 @@ export function useFinance() {
         .order('due_date', { ascending: true });
 
       if (!debtErr && debtData) {
-        const mapped: DebtItem[] = debtData.map((d: any) => ({
-          id: d.id,
-          userId: d.user_id,
-          userName: d.user_name,
-          creditor: d.creditor,
-          description: d.description || '',
-          totalAmount: Number(d.total_amount || 0),
-          installmentAmount: Number(d.installment_amount),
-          currentInstallment: d.current_installment,
-          totalInstallments: d.total_installments,
-          dueDate: d.due_date,
-          week: d.cycle_week || 1,
-          status: d.status,
-          isRecurring: d.description?.includes('[Recorrente]') || d.description?.includes('[Todo Mês]'),
-        }));
+        const mapped: DebtItem[] = debtData.map((d: any) => {
+          const resolved = resolveUserForItem(d.user_id, `${d.creditor} ${d.description}`, d.user_name);
+          return {
+            id: d.id,
+            userId: resolved.userId,
+            userName: resolved.userName,
+            creditor: d.creditor,
+            description: d.description || '',
+            totalAmount: Number(d.total_amount || 0),
+            installmentAmount: Number(d.installment_amount),
+            currentInstallment: d.current_installment,
+            totalInstallments: d.total_installments,
+            dueDate: d.due_date,
+            week: d.cycle_week || 1,
+            status: d.status,
+            isRecurring: d.description?.includes('[Recorrente]') || d.description?.includes('[Todo Mês]'),
+          };
+        });
         setDebts(mapped);
       }
 
@@ -88,19 +134,22 @@ export function useFinance() {
         .order('date', { ascending: true });
 
       if (!expErr && expData) {
-        const mapped: ExpenseItem[] = expData.map((d: any) => ({
-          id: d.id,
-          userId: d.user_id,
-          userName: d.user_name,
-          description: d.description,
-          amount: Number(d.amount),
-          date: d.date,
-          week: d.cycle_week || 1,
-          category: d.category,
-          isFixed: d.is_fixed,
-          paid: d.paid,
-          isRecurring: d.is_fixed || d.description?.includes('[Recorrente]') || d.description?.includes('[Todo Mês]'),
-        }));
+        const mapped: ExpenseItem[] = expData.map((d: any) => {
+          const resolved = resolveUserForItem(d.user_id, d.description, d.user_name);
+          return {
+            id: d.id,
+            userId: resolved.userId,
+            userName: resolved.userName,
+            description: d.description,
+            amount: Number(d.amount),
+            date: d.date,
+            week: d.cycle_week || 1,
+            category: d.category,
+            isFixed: d.is_fixed,
+            paid: d.paid,
+            isRecurring: d.is_fixed || d.description?.includes('[Recorrente]') || d.description?.includes('[Todo Mês]'),
+          };
+        });
         setExpenses(mapped);
       }
 
@@ -127,12 +176,13 @@ export function useFinance() {
     loadFromSupabase();
   }, [loadFromSupabase]);
 
-  // Criar Usuário diretamente no Supabase
-  const addUser = async (name: string, avatarColor: string = 'blue'): Promise<UserProfile | null> => {
+  // Criar Usuário diretamente no Supabase com suporte a senha
+  const addUser = async (name: string, avatarColor: string = 'blue', password?: string): Promise<UserProfile | null> => {
     try {
+      const storedColor = password ? `${avatarColor}:::${password}` : avatarColor;
       const { data, error } = await supabase
         .from('finance_users')
-        .insert([{ name, avatar_color: avatarColor, is_default: users.length === 0 }])
+        .insert([{ name: name.trim(), avatar_color: storedColor, is_default: users.length === 0 }])
         .select()
         .single();
 
@@ -145,7 +195,8 @@ export function useFinance() {
         const newUser: UserProfile = {
           id: data.id,
           name: data.name,
-          avatarColor: data.avatar_color || avatarColor,
+          avatarColor: avatarColor,
+          passwordHash: password || undefined,
           isDefault: data.is_default,
         };
         setUsers((prev) => [...prev, newUser]);
@@ -171,12 +222,20 @@ export function useFinance() {
     }
   };
 
-  // Atualizar/Editar Nome do Usuário no Supabase
-  const updateUser = async (id: string, name: string): Promise<boolean> => {
+  // Atualizar/Editar Nome e Senha do Usuário no Supabase
+  const updateUser = async (id: string, name: string, password?: string): Promise<boolean> => {
     try {
+      const existingUser = users.find((u) => u.id === id);
+      const color = existingUser?.avatarColor || 'blue';
+      const effectivePassword = password !== undefined ? password : existingUser?.passwordHash;
+      const storedColor = effectivePassword ? `${color}:::${effectivePassword}` : color;
+
       const { error } = await supabase
         .from('finance_users')
-        .update({ name: name.trim() })
+        .update({ 
+          name: name.trim(),
+          avatar_color: storedColor
+        })
         .eq('id', id);
 
       if (error) {
@@ -185,7 +244,7 @@ export function useFinance() {
       }
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === id ? { ...u, name: name.trim() } : u))
+        prev.map((u) => (u.id === id ? { ...u, name: name.trim(), passwordHash: effectivePassword } : u))
       );
       return true;
     } catch (e) {

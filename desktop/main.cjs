@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 
 let mainWindow;
@@ -15,7 +15,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: path.join(__dirname, '../public/favicon.svg'),
+    icon: path.join(__dirname, '../public/app-icon.png'),
   });
 
   const distPath = path.join(__dirname, '../dist/index.html');
