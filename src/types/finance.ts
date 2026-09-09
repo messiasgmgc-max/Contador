@@ -116,3 +116,12 @@ export interface MonthSummary {
   /** Real: o que entrou de verdade menos o que saiu de verdade. */
   balanceActual: number;
 }
+
+/**
+ * O que a edição de um lançamento pode mudar. Sem `recurrence`: editar mexe
+ * numa linha só — quem quiser mudar a série inteira apaga e cadastra de novo.
+ * `week` e `referenceMonth` continuam saindo da data, nunca do formulário.
+ */
+export type EditIncome = Omit<IncomeItem, 'id' | 'week' | 'referenceMonth' | 'seriesId'>;
+export type EditDebt = Omit<DebtItem, 'id' | 'week' | 'referenceMonth' | 'seriesId'>;
+export type EditExpense = Omit<ExpenseItem, 'id' | 'week' | 'referenceMonth' | 'seriesId'>;

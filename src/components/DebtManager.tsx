@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import type {
-  DebtItem, UserProfile, NewDebt, WeekNumber, CycleWeek, MonthKey,
+  DebtItem, UserProfile, NewDebt, EditDebt, DebtStatus, WeekNumber, CycleWeek, MonthKey,
 } from '../types/finance';
 import { RecurrenceSelector } from './RecurrenceSelector';
 import { inputCls, cancelCls, Field, Tag } from './ui';
 import { formatBRL, formatBR, cycleWeekOf, currentMonthKey, todayISO } from '../lib/period';
-import { Plus, Trash2, CreditCard, User, Repeat, Check, CircleCheck } from 'lucide-react';
+import { Plus, Trash2, CreditCard, User, Repeat, Check, CircleCheck, Pencil, X } from 'lucide-react';
 
 interface Props {
   debts: DebtItem[];
@@ -14,13 +14,14 @@ interface Props {
   defaultUserId?: string;
   selectedWeek: WeekNumber | 'ALL';
   onAddDebt: (item: NewDebt) => void | Promise<void>;
+  onUpdateDebt: (id: string, patch: EditDebt) => void | Promise<void>;
   onPayInstallment: (id: string) => void;
   onDeleteDebt: (id: string) => void;
 }
 
 export const DebtManager: React.FC<Props> = ({
   debts, users, monthKey, defaultUserId, selectedWeek,
-  onAddDebt, onPayInstallment, onDeleteDebt,
+  onAddDebt, onUpdateDebt, onPayInstallment, onDeleteDebt,
 }) => {
   const defaultDate = monthKey === currentMonthKey() ? todayISO() : `${monthKey}-01`;
 
@@ -36,14 +37,50 @@ export const DebtManager: React.FC<Props> = ({
   const [weeks, setWeeks] = useState<CycleWeek[]>([1]);
   const [months, setMonths] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [status, setStatus] = useState<DebtStatus>('Pendente');
 
   // Ao trocar de mês, a data do formulário acompanha. Sem isto o lançamento
   // feito enquanto se olha outro mês nascia no mês de hoje e sumia da tela.
   const [formMonth, setFormMonth] = useState(monthKey);
   if (formMonth !== monthKey) {
     setFormMonth(monthKey);
-    setDueDate(defaultDate);
+    // Editando, a data é a do lançamento; trocar o mês não pode atropelá-la.
+    if (!editingId) setDueDate(defaultDate);
   }
+
+  const fecharForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setCreditor('');
+    setDescription('');
+    setInstallmentAmount('');
+    setCurrentInstallment('1');
+    setTotalInstallments('1');
+    setStatus('Pendente');
+    setRecurring(false);
+    setDueDate(defaultDate);
+  };
+
+  const abrirNovo = () => {
+    if (showForm && !editingId) { fecharForm(); return; }
+    fecharForm();
+    setShowForm(true);
+  };
+
+  const abrirEdicao = (item: DebtItem) => {
+    setEditingId(item.id);
+    setCreditor(item.creditor);
+    setDescription(item.description);
+    setInstallmentAmount(String(item.installmentAmount));
+    setCurrentInstallment(String(item.currentInstallment));
+    setTotalInstallments(String(item.totalInstallments));
+    setDueDate(item.dueDate);
+    setUserId(item.userId ?? '');
+    setStatus(item.status);
+    setRecurring(false);
+    setShowForm(true);
+  };
 
   const visible = selectedWeek === 'ALL' ? debts : debts.filter((d) => d.week === selectedWeek);
   const total = visible.reduce((a, d) => a + d.installmentAmount, 0);
@@ -62,26 +99,30 @@ export const DebtManager: React.FC<Props> = ({
 
     const atual = Math.min(Math.max(1, parseInt(currentInstallment) || 1), parcelas);
 
+    const base = {
+      userId: userId || undefined,
+      userName: users.find((u) => u.id === userId)?.name,
+      creditor: creditor.trim(),
+      description: description.trim() || 'Parcelamento',
+      totalAmount: valorParcela * parcelas,
+      installmentAmount: valorParcela,
+      currentInstallment: atual,
+      totalInstallments: parcelas,
+      dueDate,
+    };
+
     setSaving(true);
     try {
-      await onAddDebt({
-        userId: userId || undefined,
-        userName: users.find((u) => u.id === userId)?.name,
-        creditor: creditor.trim(),
-        description: description.trim() || 'Parcelamento',
-        totalAmount: valorParcela * parcelas,
-        installmentAmount: valorParcela,
-        currentInstallment: atual,
-        totalInstallments: parcelas,
-        dueDate,
-        status: 'Pendente',
-        recurrence: recurring ? { weeks, months } : undefined,
-      });
-      setCreditor('');
-      setDescription('');
-      setInstallmentAmount('');
-      setRecurring(false);
-      setShowForm(false);
+      if (editingId) {
+        await onUpdateDebt(editingId, { ...base, status });
+      } else {
+        await onAddDebt({
+          ...base,
+          status: 'Pendente',
+          recurrence: recurring ? { weeks, months } : undefined,
+        });
+      }
+      fecharForm();
     } finally {
       setSaving(false);
     }
@@ -113,7 +154,7 @@ export const DebtManager: React.FC<Props> = ({
           </div>
 
           <button
-            onClick={() => setShowForm((v) => !v)}
+            onClick={abrirNovo}
             className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 cursor-pointer shadow-xs"
           >
             <Plus className="w-4 h-4" />
@@ -124,6 +165,18 @@ export const DebtManager: React.FC<Props> = ({
 
       {showForm && (
         <form onSubmit={handleSubmit} className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200 space-y-4">
+          {editingId && (
+            <div className="flex items-center justify-between gap-2 -mb-1">
+              <span className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+                <Pencil className="w-3.5 h-3.5" /> Editando esta dívida
+              </span>
+              <button type="button" onClick={fecharForm} title="Cancelar edição"
+                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Field label="Credor">
               <input
@@ -187,6 +240,20 @@ export const DebtManager: React.FC<Props> = ({
               />
             </Field>
 
+            {editingId && (
+              <Field label="Situação">
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as DebtStatus)}
+                  className={inputCls}
+                >
+                  <option value="Pendente">Pendente</option>
+                  <option value="Pago">Paga</option>
+                  <option value="Atrasado">Atrasada</option>
+                </select>
+              </Field>
+            )}
+
             {users.length > 1 && (
               <Field label="De quem é">
                 <select value={userId} onChange={(e) => setUserId(e.target.value)} className={inputCls}>
@@ -203,6 +270,7 @@ export const DebtManager: React.FC<Props> = ({
             </p>
           )}
 
+          {!editingId && (
           <RecurrenceSelector
             enabled={recurring}
             onToggle={setRecurring}
@@ -212,15 +280,16 @@ export const DebtManager: React.FC<Props> = ({
             onChangeMonths={setMonths}
             accent="rose"
           />
+          )}
 
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setShowForm(false)} className={cancelCls}>Cancelar</button>
+            <button type="button" onClick={fecharForm} className={cancelCls}>Cancelar</button>
             <button
               type="submit"
               disabled={saving || (recurring && weeks.length === 0)}
               className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
             >
-              {saving ? 'Salvando...' : 'Salvar'}
+              {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Salvar'}
             </button>
           </div>
         </form>
@@ -285,6 +354,14 @@ export const DebtManager: React.FC<Props> = ({
                   {quitada && (
                     <CircleCheck className="w-5 h-5 text-emerald-600 shrink-0" />
                   )}
+
+                  <button
+                    onClick={() => abrirEdicao(item)}
+                    title="Editar valor, vencimento, parcelas..."
+                    className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
 
                   <button
                     onClick={() => onDeleteDebt(item.id)}

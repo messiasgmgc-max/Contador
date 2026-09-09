@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import type {
-  IncomeItem, UserProfile, NewIncome, IncomeCategory, WeekNumber, CycleWeek, MonthKey,
+  IncomeItem, UserProfile, NewIncome, EditIncome, IncomeCategory, WeekNumber, CycleWeek, MonthKey,
 } from '../types/finance';
 import { RecurrenceSelector } from './RecurrenceSelector';
 import { INCOME_CATEGORIES, INCOME_LABEL } from './expenseCategories';
 import { formatBRL, formatBR, cycleWeekOf, currentMonthKey, todayISO } from '../lib/period';
-import { Plus, Check, Trash2, Calendar, ArrowUpRight, User, Repeat } from 'lucide-react';
+import { Plus, Check, Trash2, Calendar, ArrowUpRight, User, Repeat, Pencil, X } from 'lucide-react';
 import { inputCls, cancelCls, Field, Tag } from './ui';
 
 interface Props {
@@ -15,13 +15,14 @@ interface Props {
   defaultUserId?: string;
   selectedWeek: WeekNumber | 'ALL';
   onAddIncome: (item: NewIncome) => void | Promise<void>;
+  onUpdateIncome: (id: string, patch: EditIncome) => void | Promise<void>;
   onToggleReceived: (id: string) => void;
   onDeleteIncome: (id: string) => void;
 }
 
 export const IncomeManager: React.FC<Props> = ({
   incomes, users, monthKey, defaultUserId, selectedWeek,
-  onAddIncome, onToggleReceived, onDeleteIncome,
+  onAddIncome, onUpdateIncome, onToggleReceived, onDeleteIncome,
 }) => {
   // Dentro do mês corrente a data padrão é hoje; em outro mês, o dia 1 dele.
   const defaultDate = monthKey === currentMonthKey() ? todayISO() : `${monthKey}-01`;
@@ -36,14 +37,50 @@ export const IncomeManager: React.FC<Props> = ({
   const [weeks, setWeeks] = useState<CycleWeek[]>([1, 2, 3]);
   const [months, setMonths] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [recebido, setRecebido] = useState(false);
 
   // Ao trocar de mês, a data do formulário acompanha. Sem isto o lançamento
   // feito enquanto se olha outro mês nascia no mês de hoje e sumia da tela.
   const [formMonth, setFormMonth] = useState(monthKey);
   if (formMonth !== monthKey) {
     setFormMonth(monthKey);
-    setExpectedDate(defaultDate);
+    // Editando, a data é a do lançamento; trocar o mês não pode atropelá-la.
+    if (!editingId) setExpectedDate(defaultDate);
   }
+
+  const fecharForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setDescription('');
+    setAmount('');
+    setRecurring(false);
+    setRecebido(false);
+    setExpectedDate(defaultDate);
+  };
+
+  const abrirNovo = () => {
+    if (showForm && !editingId) { fecharForm(); return; }
+    setEditingId(null);
+    setDescription('');
+    setAmount('');
+    setRecurring(false);
+    setRecebido(false);
+    setExpectedDate(defaultDate);
+    setShowForm(true);
+  };
+
+  const abrirEdicao = (item: IncomeItem) => {
+    setEditingId(item.id);
+    setDescription(item.description);
+    setAmount(String(item.amount));
+    setExpectedDate(item.expectedDate);
+    setCategory(item.category);
+    setUserId(item.userId ?? '');
+    setRecebido(item.received);
+    setRecurring(false);
+    setShowForm(true);
+  };
 
   const visible = selectedWeek === 'ALL' ? incomes : incomes.filter((i) => i.week === selectedWeek);
   const total = visible.reduce((a, i) => a + i.amount, 0);
@@ -58,22 +95,27 @@ export const IncomeManager: React.FC<Props> = ({
     if (!description.trim() || !Number.isFinite(value) || value < 0) return;
     if (recurring && weeks.length === 0) return;
 
+    const base = {
+      userId: userId || undefined,
+      userName: users.find((u) => u.id === userId)?.name,
+      description: description.trim(),
+      amount: value,
+      expectedDate,
+      category,
+    };
+
     setSaving(true);
     try {
-      await onAddIncome({
-        userId: userId || undefined,
-        userName: users.find((u) => u.id === userId)?.name,
-        description: description.trim(),
-        amount: value,
-        expectedDate,
-        category,
-        received: false,
-        recurrence: recurring ? { weeks, months } : undefined,
-      });
-      setDescription('');
-      setAmount('');
-      setRecurring(false);
-      setShowForm(false);
+      if (editingId) {
+        await onUpdateIncome(editingId, { ...base, received: recebido });
+      } else {
+        await onAddIncome({
+          ...base,
+          received: false,
+          recurrence: recurring ? { weeks, months } : undefined,
+        });
+      }
+      fecharForm();
     } finally {
       setSaving(false);
     }
@@ -105,7 +147,7 @@ export const IncomeManager: React.FC<Props> = ({
           </div>
 
           <button
-            onClick={() => setShowForm((v) => !v)}
+            onClick={abrirNovo}
             className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer shadow-xs"
           >
             <Plus className="w-4 h-4" />
@@ -116,6 +158,18 @@ export const IncomeManager: React.FC<Props> = ({
 
       {showForm && (
         <form onSubmit={handleSubmit} className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-4">
+          {editingId && (
+            <div className="flex items-center justify-between gap-2 -mb-1">
+              <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                <Pencil className="w-3.5 h-3.5" /> Editando este recebimento
+              </span>
+              <button type="button" onClick={fecharForm} title="Cancelar edição"
+                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Field label="Descrição">
               <input
@@ -172,6 +226,7 @@ export const IncomeManager: React.FC<Props> = ({
             )}
           </div>
 
+          {!editingId && (
           <RecurrenceSelector
             enabled={recurring}
             onToggle={setRecurring}
@@ -181,9 +236,21 @@ export const IncomeManager: React.FC<Props> = ({
             onChangeMonths={setMonths}
             accent="emerald"
           />
+          )}
+
+          {editingId && (
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+              <input
+                type="checkbox" checked={recebido}
+                onChange={(e) => setRecebido(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300"
+              />
+              Já caiu na conta
+            </label>
+          )}
 
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setShowForm(false)} className={cancelCls}>
+            <button type="button" onClick={fecharForm} className={cancelCls}>
               Cancelar
             </button>
             <button
@@ -191,7 +258,7 @@ export const IncomeManager: React.FC<Props> = ({
               disabled={saving || (recurring && weeks.length === 0)}
               className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
             >
-              {saving ? 'Salvando...' : 'Salvar'}
+              {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Salvar'}
             </button>
           </div>
         </form>
@@ -247,6 +314,13 @@ export const IncomeManager: React.FC<Props> = ({
               <span className="text-sm sm:text-base font-bold text-emerald-600 whitespace-nowrap">
                 + {formatBRL(item.amount)}
               </span>
+              <button
+                onClick={() => abrirEdicao(item)}
+                title="Editar valor, data, categoria..."
+                className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
               <button
                 onClick={() => onDeleteIncome(item.id)}
                 title="Excluir"

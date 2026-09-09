@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import type {
-  ExpenseItem, UserProfile, NewExpense, ExpenseCategory, WeekNumber, CycleWeek, MonthKey,
+  ExpenseItem, UserProfile, NewExpense, EditExpense, ExpenseCategory, WeekNumber, CycleWeek, MonthKey,
 } from '../types/finance';
 import { RecurrenceSelector } from './RecurrenceSelector';
 import { EXPENSE_CATEGORIES, CATEGORY_LABEL, categoryIcon } from './expenseCategories';
 import { inputCls, cancelCls, Field, Tag } from './ui';
 import { formatBRL, formatBR, cycleWeekOf, currentMonthKey, todayISO } from '../lib/period';
-import { Plus, Check, Trash2, ShoppingBag, User, Repeat, Filter, X } from 'lucide-react';
+import { Plus, Check, Trash2, ShoppingBag, User, Repeat, Filter, X, Pencil } from 'lucide-react';
 
 interface Props {
   expenses: ExpenseItem[];
@@ -15,13 +15,14 @@ interface Props {
   defaultUserId?: string;
   selectedWeek: WeekNumber | 'ALL';
   onAddExpense: (item: NewExpense) => void | Promise<void>;
+  onUpdateExpense: (id: string, patch: EditExpense) => void | Promise<void>;
   onTogglePaid: (id: string) => void;
   onDeleteExpense: (id: string) => void;
 }
 
 export const ExpenseManager: React.FC<Props> = ({
   expenses, users, monthKey, defaultUserId, selectedWeek,
-  onAddExpense, onTogglePaid, onDeleteExpense,
+  onAddExpense, onUpdateExpense, onTogglePaid, onDeleteExpense,
 }) => {
   const defaultDate = monthKey === currentMonthKey() ? todayISO() : `${monthKey}-01`;
 
@@ -37,14 +38,46 @@ export const ExpenseManager: React.FC<Props> = ({
   const [weeks, setWeeks] = useState<CycleWeek[]>([1, 2, 3, 4]);
   const [months, setMonths] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Ao trocar de mês, a data do formulário acompanha. Sem isto o lançamento
   // feito enquanto se olha outro mês nascia no mês de hoje e sumia da tela.
   const [formMonth, setFormMonth] = useState(monthKey);
   if (formMonth !== monthKey) {
     setFormMonth(monthKey);
-    setDate(defaultDate);
+    // Editando, a data é a do lançamento; trocar o mês não pode atropelá-la.
+    if (!editingId) setDate(defaultDate);
   }
+
+  const fecharForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setDescription('');
+    setAmount('');
+    setRecurring(false);
+    setIsFixed(false);
+    setPaidNow(true);
+    setDate(defaultDate);
+  };
+
+  const abrirNovo = () => {
+    if (showForm && !editingId) { fecharForm(); return; }
+    fecharForm();
+    setShowForm(true);
+  };
+
+  const abrirEdicao = (item: ExpenseItem) => {
+    setEditingId(item.id);
+    setDescription(item.description);
+    setAmount(String(item.amount));
+    setDate(item.date);
+    setCategory(item.category);
+    setUserId(item.userId ?? '');
+    setIsFixed(item.isFixed);
+    setPaidNow(item.paid);
+    setRecurring(false);
+    setShowForm(true);
+  };
 
   // Filtros da lista
   const [filterCategory, setFilterCategory] = useState<ExpenseCategory | 'TODAS'>('TODAS');
@@ -73,25 +106,29 @@ export const ExpenseManager: React.FC<Props> = ({
     if (!description.trim() || !Number.isFinite(value) || value <= 0) return;
     if (recurring && weeks.length === 0) return;
 
+    const base = {
+      userId: userId || undefined,
+      userName: users.find((u) => u.id === userId)?.name,
+      description: description.trim(),
+      amount: value,
+      date,
+      category,
+      isFixed,
+    };
+
     setSaving(true);
     try {
-      await onAddExpense({
-        userId: userId || undefined,
-        userName: users.find((u) => u.id === userId)?.name,
-        description: description.trim(),
-        amount: value,
-        date,
-        category,
-        isFixed,
-        // Gasto do dia a dia normalmente já saiu do bolso; conta futura, não.
-        paid: recurring ? false : paidNow,
-        recurrence: recurring ? { weeks, months } : undefined,
-      });
-      setDescription('');
-      setAmount('');
-      setRecurring(false);
-      setIsFixed(false);
-      setShowForm(false);
+      if (editingId) {
+        await onUpdateExpense(editingId, { ...base, paid: paidNow });
+      } else {
+        await onAddExpense({
+          ...base,
+          // Gasto do dia a dia normalmente já saiu do bolso; conta futura, não.
+          paid: recurring ? false : paidNow,
+          recurrence: recurring ? { weeks, months } : undefined,
+        });
+      }
+      fecharForm();
     } finally {
       setSaving(false);
     }
@@ -123,7 +160,7 @@ export const ExpenseManager: React.FC<Props> = ({
           </div>
 
           <button
-            onClick={() => setShowForm((v) => !v)}
+            onClick={abrirNovo}
             className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 cursor-pointer shadow-xs"
           >
             <Plus className="w-4 h-4" />
@@ -134,6 +171,18 @@ export const ExpenseManager: React.FC<Props> = ({
 
       {showForm && (
         <form onSubmit={handleSubmit} className="p-4 rounded-2xl bg-rose-50/40 border border-rose-200 space-y-4">
+          {editingId && (
+            <div className="flex items-center justify-between gap-2 -mb-1">
+              <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                <Pencil className="w-3.5 h-3.5" /> Editando este gasto
+              </span>
+              <button type="button" onClick={fecharForm} title="Cancelar edição"
+                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Field label="Descrição">
               <input
@@ -200,7 +249,7 @@ export const ExpenseManager: React.FC<Props> = ({
               Conta fixa
             </label>
 
-            {!recurring && (
+            {(!recurring || editingId) && (
               <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
                 <input
                   type="checkbox" checked={paidNow}
@@ -212,6 +261,7 @@ export const ExpenseManager: React.FC<Props> = ({
             )}
           </div>
 
+          {!editingId && (
           <RecurrenceSelector
             enabled={recurring}
             onToggle={setRecurring}
@@ -221,15 +271,16 @@ export const ExpenseManager: React.FC<Props> = ({
             onChangeMonths={setMonths}
             accent="rose"
           />
+          )}
 
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setShowForm(false)} className={cancelCls}>Cancelar</button>
+            <button type="button" onClick={fecharForm} className={cancelCls}>Cancelar</button>
             <button
               type="submit"
               disabled={saving || (recurring && weeks.length === 0)}
               className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
             >
-              {saving ? 'Salvando...' : 'Salvar'}
+              {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Salvar'}
             </button>
           </div>
         </form>
@@ -316,6 +367,13 @@ export const ExpenseManager: React.FC<Props> = ({
               <span className="text-sm sm:text-base font-bold text-rose-600 whitespace-nowrap">
                 − {formatBRL(item.amount)}
               </span>
+              <button
+                onClick={() => abrirEdicao(item)}
+                title="Editar valor, data, categoria..."
+                className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
               <button
                 onClick={() => onDeleteExpense(item.id)}
                 title="Excluir"

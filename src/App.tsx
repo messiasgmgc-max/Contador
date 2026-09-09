@@ -289,6 +289,7 @@ function App() {
                 {...managerProps}
                 incomes={incomes}
                 onAddIncome={actions.addIncome}
+                onUpdateIncome={actions.updateIncome}
                 onToggleReceived={actions.toggleIncomeReceived}
                 onDeleteIncome={actions.deleteIncome}
               />
@@ -299,6 +300,7 @@ function App() {
                 {...managerProps}
                 debts={debts}
                 onAddDebt={actions.addDebt}
+                onUpdateDebt={actions.updateDebt}
                 onPayInstallment={actions.payDebtInstallment}
                 onDeleteDebt={actions.deleteDebt}
               />
@@ -309,6 +311,7 @@ function App() {
                 {...managerProps}
                 expenses={expenses}
                 onAddExpense={actions.addExpense}
+                onUpdateExpense={actions.updateExpense}
                 onTogglePaid={actions.toggleExpensePaid}
                 onDeleteExpense={actions.deleteExpense}
               />

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import type {
   IncomeItem, DebtItem, ExpenseItem, UserProfile,
   NewIncome, NewDebt, NewExpense,
+  EditIncome, EditDebt, EditExpense,
   WeekSummary, MonthSummary, CycleWeek, MonthKey,
 } from '../types/finance';
 import { supabase } from '../lib/supabase';
@@ -347,6 +348,43 @@ export function useFinance() {
     setIncomes((prev) => prev.map((i) => (i.id === id ? { ...i, received } : i)));
   };
 
+  /**
+   * Editar um lançamento já criado. A data pode mudar, e com ela a semana e o
+   * mês de referência — que continuam sendo derivados, nunca digitados.
+   */
+  const updateIncome = async (id: string, patch: EditIncome) => {
+    const user = users.find((u) => u.id === patch.userId);
+    const { data, error } = await supabase
+      .from('finance_incomes')
+      .update({
+        user_id: patch.userId ?? null,
+        user_name: user?.name ?? patch.userName ?? null,
+        description: patch.description.trim(),
+        amount: patch.amount,
+        expected_date: patch.expectedDate,
+        category: patch.category,
+        received: patch.received,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error || !data) { setErrorMessage(error?.message ?? 'Não deu para salvar a edição.'); return; }
+
+    setIncomes((prev) => prev.map((i) => (i.id === id ? {
+      ...i,
+      userId: data.user_id ?? undefined,
+      userName: user?.name ?? patch.userName,
+      description: data.description,
+      amount: Number(data.amount),
+      expectedDate: data.expected_date,
+      week: (data.cycle_week ?? cycleWeekOf(data.expected_date)) as CycleWeek,
+      referenceMonth: monthKeyOf(data.expected_date),
+      category: data.category,
+      received: data.received,
+    } : i)));
+  };
+
   const deleteIncome = async (id: string) => {
     const { error } = await supabase.from('finance_incomes').delete().eq('id', id);
     if (error) { setErrorMessage(error.message); return; }
@@ -457,6 +495,45 @@ export function useFinance() {
     }]);
   };
 
+  const updateDebt = async (id: string, patch: EditDebt) => {
+    const user = users.find((u) => u.id === patch.userId);
+    const { data, error } = await supabase
+      .from('finance_debts')
+      .update({
+        user_id: patch.userId ?? null,
+        user_name: user?.name ?? patch.userName ?? null,
+        creditor: patch.creditor.trim(),
+        description: (patch.description || 'Parcelamento').trim(),
+        total_amount: patch.totalAmount,
+        installment_amount: patch.installmentAmount,
+        current_installment: patch.currentInstallment,
+        total_installments: patch.totalInstallments,
+        due_date: patch.dueDate,
+        status: patch.status,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error || !data) { setErrorMessage(error?.message ?? 'Não deu para salvar a edição.'); return; }
+
+    setDebts((prev) => prev.map((d) => (d.id === id ? {
+      ...d,
+      userId: data.user_id ?? undefined,
+      userName: user?.name ?? patch.userName,
+      creditor: data.creditor,
+      description: data.description ?? '',
+      totalAmount: Number(data.total_amount ?? 0),
+      installmentAmount: Number(data.installment_amount),
+      currentInstallment: data.current_installment,
+      totalInstallments: data.total_installments,
+      dueDate: data.due_date,
+      week: (data.cycle_week ?? cycleWeekOf(data.due_date)) as CycleWeek,
+      referenceMonth: monthKeyOf(data.due_date),
+      status: data.status,
+    } : d)));
+  };
+
   const deleteDebt = async (id: string) => {
     const { error } = await supabase.from('finance_debts').delete().eq('id', id);
     if (error) { setErrorMessage(error.message); return; }
@@ -506,6 +583,41 @@ export function useFinance() {
     const { error } = await supabase.from('finance_expenses').update({ paid }).eq('id', id);
     if (error) { setErrorMessage(error.message); return; }
     setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, paid } : e)));
+  };
+
+  const updateExpense = async (id: string, patch: EditExpense) => {
+    const user = users.find((u) => u.id === patch.userId);
+    const { data, error } = await supabase
+      .from('finance_expenses')
+      .update({
+        user_id: patch.userId ?? null,
+        user_name: user?.name ?? patch.userName ?? null,
+        description: patch.description.trim(),
+        amount: patch.amount,
+        date: patch.date,
+        category: patch.category,
+        is_fixed: patch.isFixed,
+        paid: patch.paid,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error || !data) { setErrorMessage(error?.message ?? 'Não deu para salvar a edição.'); return; }
+
+    setExpenses((prev) => prev.map((e) => (e.id === id ? {
+      ...e,
+      userId: data.user_id ?? undefined,
+      userName: user?.name ?? patch.userName,
+      description: data.description,
+      amount: Number(data.amount),
+      date: data.date,
+      week: (data.cycle_week ?? cycleWeekOf(data.date)) as CycleWeek,
+      referenceMonth: monthKeyOf(data.date),
+      category: data.category,
+      isFixed: data.is_fixed,
+      paid: data.paid,
+    } : e)));
   };
 
   const deleteExpense = async (id: string) => {
@@ -560,12 +672,15 @@ export function useFinance() {
     actions: {
       addIncome,
       toggleIncomeReceived,
+      updateIncome,
       deleteIncome,
       addDebt,
       payDebtInstallment,
+      updateDebt,
       deleteDebt,
       addExpense,
       toggleExpensePaid,
+      updateExpense,
       deleteExpense,
       deleteSeries,
     },
