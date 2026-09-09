@@ -1,76 +1,75 @@
 import { useState, useEffect } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useFinance } from './hooks/useFinance';
 import { CycleTimeline } from './components/CycleTimeline';
 import { CashflowSummary } from './components/CashflowSummary';
+import { MonthNavigator } from './components/MonthNavigator';
+import { SpendingPanel } from './components/SpendingPanel';
 import { IncomeManager } from './components/IncomeManager';
 import { DebtManager } from './components/DebtManager';
 import { ExpenseManager } from './components/ExpenseManager';
 import { LoginScreen } from './components/LoginScreen';
+import { inputCls, cancelCls, Field } from './components/ui';
+import { monthLabel } from './lib/period';
 import type { WeekNumber, UserProfile } from './types/finance';
-import { 
-  Wallet, 
-  ArrowUpRight, 
-  CreditCard, 
-  ShoppingBag, 
-  Layers,
-  RefreshCw,
-  Calendar,
-  LogOut,
-  Edit3
+import {
+  Wallet, ArrowUpRight, CreditCard, ShoppingBag, Layers,
+  RefreshCw, LogOut, Edit3, TriangleAlert,
 } from 'lucide-react';
 
+type Tab = 'geral' | 'receitas' | 'dividas' | 'gastos';
+
 function App() {
-  const { 
-    users,
-    setActiveUserId,
-    addUser,
-    updateUser,
-    cycle, 
-    setCycle, 
-    incomes, 
-    debts, 
-    expenses, 
-    weeks, 
-    summary, 
-    isLoading,
-    isSyncing, 
-    isSupabaseConnected, 
-    reloadFromSupabase, 
-    actions 
+  const {
+    users, setActiveUserId, addUser, updateUser, upgradePasswordIfLegacy,
+    monthKey, setMonthKey, availableMonths,
+    incomes, debts, expenses, weeks, summary, spending, expensesByCategory,
+    isLoading, isSyncing, isSupabaseConnected, errorMessage,
+    reloadFromSupabase, actions,
   } = useFinance();
 
-  // Usuário autenticado na sessão atual (persistido em localStorage)
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem('finance_session_user');
-      return saved ? JSON.parse(saved) : null;
+      return saved ? (JSON.parse(saved) as UserProfile) : null;
     } catch {
       return null;
     }
   });
+
   const [selectedWeek, setSelectedWeek] = useState<WeekNumber | 'ALL'>('ALL');
-  const [activeTab, setActiveTab] = useState<'geral' | 'receitas' | 'dividas' | 'gastos'>('geral');
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [newAccountName, setNewAccountName] = useState('');
-  const [newAccountPassword, setNewAccountPassword] = useState('');
+  const [activeTab, setActiveTab] = useState<Tab>('geral');
+  const [showEdit, setShowEdit] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPassword, setEditPassword] = useState('');
 
-  // Manter activeUserId sincronizado com currentUser se logado
+  // Mantém o filtro de usuário e a cópia local do perfil em dia
   useEffect(() => {
-    if (currentUser) {
-      setActiveUserId(currentUser.id);
-      // Se a lista de usuários no Supabase atualizar, sincronizar dados do currentUser
-      const updatedUser = users.find((u) => u.id === currentUser.id);
-      if (updatedUser && (updatedUser.name !== currentUser.name || updatedUser.avatarColor !== currentUser.avatarColor || updatedUser.passwordHash !== currentUser.passwordHash)) {
-        setCurrentUser(updatedUser);
-        localStorage.setItem('finance_session_user', JSON.stringify(updatedUser));
-      }
-    }
-  }, [currentUser, users, setActiveUserId]);
+    if (!currentUser) return;
+    setActiveUserId(currentUser.id);
 
-  const handleLogin = (user: UserProfile) => {
+    // Perfil excluído (por aqui ou por outro aparelho): a sessão salva no
+    // localStorage apontava para um id que não existe mais e a tela ficava
+    // presa num perfil fantasma, sem lançamento nenhum.
+    if (!isLoading && users.length > 0 && !users.some((u) => u.id === currentUser.id)) {
+      setCurrentUser(null);
+      setActiveUserId('ALL');
+      localStorage.removeItem('finance_session_user');
+      return;
+    }
+
+    const fresh = users.find((u) => u.id === currentUser.id);
+    if (fresh && (fresh.name !== currentUser.name || fresh.passwordHash !== currentUser.passwordHash)) {
+      setCurrentUser(fresh);
+      localStorage.setItem('finance_session_user', JSON.stringify(fresh));
+    }
+  }, [currentUser, users, isLoading, setActiveUserId]);
+
+  const handleLogin = (user: UserProfile, typedPassword?: string) => {
     setCurrentUser(user);
     setActiveUserId(user.id);
     localStorage.setItem('finance_session_user', JSON.stringify(user));
+    if (typedPassword) void upgradePasswordIfLegacy(user, typedPassword);
   };
 
   const handleLogout = () => {
@@ -79,25 +78,20 @@ function App() {
     localStorage.removeItem('finance_session_user');
   };
 
-  const handleUpdateAccount = async (e: React.FormEvent) => {
+  const handleUpdateAccount = async (e: FormEvent) => {
     e.preventDefault();
-    if (!currentUser || !newAccountName.trim()) return;
-    const pwdToSave = newAccountPassword.trim() ? newAccountPassword.trim() : currentUser.passwordHash;
-    const success = await updateUser(currentUser.id, newAccountName.trim(), pwdToSave);
-    if (success) {
-      const updated = { 
-        ...currentUser, 
-        name: newAccountName.trim(),
-        passwordHash: pwdToSave
-      };
-      setCurrentUser(updated);
-      localStorage.setItem('finance_session_user', JSON.stringify(updated));
-      setShowEditModal(false);
-      setNewAccountPassword('');
+    if (!currentUser || !editName.trim()) return;
+    const ok = await updateUser(
+      currentUser.id,
+      editName.trim(),
+      editPassword.trim() ? editPassword.trim() : undefined,
+    );
+    if (ok) {
+      setShowEdit(false);
+      setEditPassword('');
     }
   };
 
-  // Se o usuário ainda não logou, mostra a tela de login/criação de conta
   if (!currentUser) {
     return (
       <LoginScreen
@@ -110,157 +104,112 @@ function App() {
     );
   }
 
-  const handleWeekSelection = (week: WeekNumber) => {
-    if (selectedWeek === week) {
-      setSelectedWeek('ALL');
-    } else {
-      setSelectedWeek(week);
-    }
+  const toggleWeek = (w: WeekNumber) => setSelectedWeek((prev) => (prev === w ? 'ALL' : w));
+
+  const managerProps = {
+    users,
+    monthKey,
+    defaultUserId: currentUser.id,
+    selectedWeek,
   };
 
+  const tabs: { id: Tab; label: string; count?: number; icon: ReactNode; color: string }[] = [
+    { id: 'geral', label: 'Visão geral', icon: <Layers className="w-3.5 h-3.5" />, color: 'bg-blue-600' },
+    { id: 'receitas', label: 'Recebimentos', count: incomes.length, icon: <ArrowUpRight className="w-3.5 h-3.5" />, color: 'bg-emerald-600' },
+    { id: 'dividas', label: 'Dívidas', count: debts.length, icon: <CreditCard className="w-3.5 h-3.5" />, color: 'bg-amber-600' },
+    { id: 'gastos', label: 'Gastos', count: expenses.length, icon: <ShoppingBag className="w-3.5 h-3.5" />, color: 'bg-rose-600' },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-['Inter',-apple-system,BlinkMacSystemFont,sans-serif] selection:bg-blue-600 selection:text-white pb-24">
-      
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
-          
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-['Inter',-apple-system,BlinkMacSystemFont,sans-serif] selection:bg-blue-600 selection:text-white pb-24 sm:pb-8">
+
+      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0">
               <Wallet className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-
-            <div>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="text-base sm:text-xl font-extrabold tracking-tight text-slate-900">
-                  Fluxo <span className="text-blue-600">Financeiro</span>
-                </span>
-                <span className="hidden sm:inline-block text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-full">
-                  100% Online
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500">
-                <span>Conta:</span>
-                <strong className="text-slate-900 font-bold">{currentUser.name}</strong>
+            <div className="min-w-0">
+              <span className="text-base sm:text-xl font-extrabold tracking-tight block truncate">
+                Fluxo <span className="text-blue-600">Financeiro</span>
+              </span>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                <strong className="text-slate-900 font-bold truncate">{currentUser.name}</strong>
                 <button
-                  onClick={() => {
-                    setNewAccountName(currentUser.name);
-                    setShowEditModal(true);
-                  }}
-                  title="Editar nome da conta"
-                  className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                  onClick={() => { setEditName(currentUser.name); setShowEdit(true); }}
+                  title="Editar conta"
+                  className="p-0.5 rounded text-slate-400 hover:text-blue-600 cursor-pointer shrink-0"
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
+                  <Edit3 className="w-3 h-3" />
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Status de Conexão Supabase, Semana & Logout */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs">
-              <span className={`w-2 h-2 rounded-full ${isSupabaseConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-              <span className="text-slate-700 font-semibold hidden sm:inline">
-                {isSyncing ? 'Atualizando...' : isSupabaseConnected ? 'Supabase Online' : 'Erro de Conexão'}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => void reloadFromSupabase()}
+              title={isSupabaseConnected ? 'Sincronizar' : 'Sem conexão — tentar de novo'}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs cursor-pointer hover:bg-slate-200"
+            >
+              <span className={`w-2 h-2 rounded-full ${isSupabaseConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+              <span className="text-slate-700 font-semibold hidden md:inline">
+                {isSyncing ? 'Atualizando...' : isSupabaseConnected ? 'Online' : 'Sem conexão'}
               </span>
-              <button
-                onClick={() => reloadFromSupabase()}
-                title="Sincronizar com Supabase"
-                className="text-slate-400 hover:text-blue-600 active:text-blue-700 transition-colors cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-600' : ''}`} />
-              </button>
-            </div>
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${isSyncing ? 'animate-spin text-blue-600' : ''}`} />
+            </button>
 
-            <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs">
-              <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span className="text-slate-600 font-medium hidden sm:inline">Semana:</span>
-              <select
-                value={cycle.currentWeek}
-                onChange={(e) => setCycle({ ...cycle, currentWeek: Number(e.target.value) as WeekNumber })}
-                className="bg-transparent text-blue-700 font-bold focus:outline-none cursor-pointer"
-              >
-                <option value={1}>Sem. 1</option>
-                <option value={2}>Sem. 2</option>
-                <option value={3}>Sem. 3</option>
-                <option value={4}>Sem. 4</option>
-              </select>
-            </div>
-
-            {/* Botão Sair / Trocar de Conta */}
             <button
               onClick={handleLogout}
-              title="Trocar de Conta / Sair"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 text-slate-600 text-xs font-semibold transition-all cursor-pointer"
+              title="Trocar de conta"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-600 text-slate-600 text-xs font-semibold cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Trocar</span>
             </button>
           </div>
-
         </div>
       </header>
 
-      {/* Modal Editar Perfil / Senha */}
-      {showEditModal && (
+      {showEdit && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-w-sm w-full space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-blue-600" />
-                <span>Configurações da Conta</span>
-              </h3>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-w-sm w-full space-y-4">
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <Edit3 className="w-4 h-4 text-blue-600" /> Configurações da conta
+            </h3>
 
             <form onSubmit={handleUpdateAccount} className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Nome do Perfil:
-                </label>
+              <Field label="Nome do perfil">
                 <input
-                  type="text"
-                  required
-                  value={newAccountName}
-                  onChange={(e) => setNewAccountName(e.target.value)}
-                  className="w-full bg-white border border-slate-300 focus:border-blue-600 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none shadow-xs"
+                  type="text" required value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className={inputCls}
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Senha de Acesso:
-                </label>
+              <Field label="Senha de acesso">
                 <input
                   type="password"
-                  placeholder={currentUser?.passwordHash ? 'Nova senha (deixe vazio para manter)' : 'Definir uma senha de acesso'}
-                  value={newAccountPassword}
-                  onChange={(e) => setNewAccountPassword(e.target.value)}
-                  className="w-full bg-white border border-slate-300 focus:border-blue-600 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none shadow-xs"
+                  placeholder={currentUser.passwordHash ? 'Nova senha (vazio mantém a atual)' : 'Definir uma senha ou PIN'}
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  className={inputCls}
                 />
                 <p className="text-[10px] text-slate-400 mt-1">
-                  {currentUser?.passwordHash ? 'Essa senha será exigida sempre ao logar neste perfil.' : 'Proteja seu perfil definindo uma senha ou PIN.'}
+                  Tranca local para separar os perfis neste aparelho. Não protege os
+                  dados no servidor — veja o README.
                 </p>
-              </div>
+              </Field>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
-                >
+              <div className="flex justify-end gap-2 pt-1">
+                <button type="button" onClick={() => setShowEdit(false)} className={cancelCls}>
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-xs"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer"
                 >
-                  Salvar Alterações
+                  Salvar
                 </button>
               </div>
             </form>
@@ -268,199 +217,120 @@ function App() {
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
-        
-        {/* Resumo de Caixa Geral */}
-        <CashflowSummary summary={summary} />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-8 space-y-6 sm:space-y-8">
 
-        {/* Linha do Tempo e Visão Semanal */}
-        <CycleTimeline
-          weeks={weeks}
-          currentWeek={cycle.currentWeek}
-          selectedWeek={selectedWeek}
-          onSelectWeek={handleWeekSelection}
-        />
-
-        {/* Barra de Filtro e Abas no Desktop / Tablet */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
-            <button
-              onClick={() => setActiveTab('geral')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                activeTab === 'geral'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Visão Geral</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('receitas')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                activeTab === 'receitas'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>Recebimentos ({incomes.length})</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('dividas')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                activeTab === 'dividas'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Dívidas ({debts.length})</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('gastos')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                activeTab === 'gastos'
-                  ? 'bg-rose-600 text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Gastos ({expenses.length})</span>
-            </button>
+        {errorMessage && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3.5 flex items-start gap-2.5">
+            <TriangleAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-rose-800">Erro ao falar com o Supabase</p>
+              <p className="text-[11px] text-rose-700 break-words">{errorMessage}</p>
+            </div>
           </div>
+        )}
 
-          {/* Tag de filtro ativo */}
-          <div className="flex items-center justify-between sm:justify-end gap-2 pt-1 sm:pt-0">
-            <span className="text-xs text-slate-500">Filtrando:</span>
-            <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">
-              {selectedWeek === 'ALL' ? 'Todas as Semanas' : `Semana ${selectedWeek}`}
-            </span>
-            {selectedWeek !== 'ALL' && (
-              <button
-                onClick={() => setSelectedWeek('ALL')}
-                className="text-xs text-slate-500 hover:text-blue-600 font-medium underline ml-1 cursor-pointer"
-              >
-                Limpar
-              </button>
+        <MonthNavigator monthKey={monthKey} availableMonths={availableMonths} onChange={setMonthKey} />
+
+        {isLoading ? (
+          <div className="py-20 text-center text-sm text-slate-400">Carregando seus dados...</div>
+        ) : (
+          <>
+            <CashflowSummary summary={summary} />
+
+            <SpendingPanel
+              spending={spending}
+              byCategory={expensesByCategory}
+              monthLabelText={monthLabel(monthKey)}
+            />
+
+            <CycleTimeline
+              weeks={weeks}
+              monthKey={monthKey}
+              selectedWeek={selectedWeek}
+              onSelectWeek={toggleWeek}
+            />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+              <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                {tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveTab(t.id)}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                      activeTab === t.id
+                        ? `${t.color} text-white`
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {t.icon}
+                    <span>{t.label}{t.count !== undefined ? ` (${t.count})` : ''}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500">Filtro:</span>
+                <span className="font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">
+                  {selectedWeek === 'ALL' ? 'mês inteiro' : `semana ${selectedWeek}`}
+                </span>
+                {selectedWeek !== 'ALL' && (
+                  <button
+                    onClick={() => setSelectedWeek('ALL')}
+                    className="text-slate-500 hover:text-blue-600 underline cursor-pointer"
+                  >
+                    limpar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {(activeTab === 'geral' || activeTab === 'receitas') && (
+              <IncomeManager
+                {...managerProps}
+                incomes={incomes}
+                onAddIncome={actions.addIncome}
+                onToggleReceived={actions.toggleIncomeReceived}
+                onDeleteIncome={actions.deleteIncome}
+              />
             )}
-          </div>
-        </div>
 
-        {/* Conteúdo das Abas */}
-        {activeTab === 'geral' && (
-          <div className="space-y-6 sm:space-y-8">
-            <IncomeManager
-              incomes={incomes}
-              users={users}
-              onAddIncome={actions.addIncome}
-              onToggleReceived={actions.toggleIncomeReceived}
-              onDeleteIncome={actions.deleteIncome}
-              selectedWeek={selectedWeek}
-            />
+            {(activeTab === 'geral' || activeTab === 'dividas') && (
+              <DebtManager
+                {...managerProps}
+                debts={debts}
+                onAddDebt={actions.addDebt}
+                onPayInstallment={actions.payDebtInstallment}
+                onDeleteDebt={actions.deleteDebt}
+              />
+            )}
 
-            <DebtManager
-              debts={debts}
-              users={users}
-              onAddDebt={actions.addDebt}
-              onPayInstallment={actions.payDebtInstallment}
-              onDeleteDebt={actions.deleteDebt}
-              selectedWeek={selectedWeek}
-            />
-
-            <ExpenseManager
-              expenses={expenses}
-              users={users}
-              onAddExpense={actions.addExpense}
-              onTogglePaid={actions.toggleExpensePaid}
-              onDeleteExpense={actions.deleteExpense}
-              selectedWeek={selectedWeek}
-            />
-          </div>
+            {(activeTab === 'geral' || activeTab === 'gastos') && (
+              <ExpenseManager
+                {...managerProps}
+                expenses={expenses}
+                onAddExpense={actions.addExpense}
+                onTogglePaid={actions.toggleExpensePaid}
+                onDeleteExpense={actions.deleteExpense}
+              />
+            )}
+          </>
         )}
-
-        {activeTab === 'receitas' && (
-          <IncomeManager
-            incomes={incomes}
-            users={users}
-            onAddIncome={actions.addIncome}
-            onToggleReceived={actions.toggleIncomeReceived}
-            onDeleteIncome={actions.deleteIncome}
-            selectedWeek={selectedWeek}
-          />
-        )}
-
-        {activeTab === 'dividas' && (
-          <DebtManager
-            debts={debts}
-            users={users}
-            onAddDebt={actions.addDebt}
-            onPayInstallment={actions.payDebtInstallment}
-            onDeleteDebt={actions.deleteDebt}
-            selectedWeek={selectedWeek}
-          />
-        )}
-
-        {activeTab === 'gastos' && (
-          <ExpenseManager
-            expenses={expenses}
-            users={users}
-            onAddExpense={actions.addExpense}
-            onTogglePaid={actions.toggleExpensePaid}
-            onDeleteExpense={actions.deleteExpense}
-            selectedWeek={selectedWeek}
-          />
-        )}
-
       </main>
 
-      {/* Barra de Navegação Inferior Fixa para Mobile */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex items-center justify-around shadow-lg">
-        <button
-          onClick={() => setActiveTab('geral')}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-[11px] font-medium transition-colors ${
-            activeTab === 'geral' ? 'text-blue-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <Layers className="w-5 h-5" />
-          <span>Geral</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('receitas')}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-[11px] font-medium transition-colors ${
-            activeTab === 'receitas' ? 'text-emerald-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <ArrowUpRight className="w-5 h-5" />
-          <span>Receitas</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('dividas')}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-[11px] font-medium transition-colors ${
-            activeTab === 'dividas' ? 'text-amber-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <CreditCard className="w-5 h-5" />
-          <span>Dívidas</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('gastos')}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-[11px] font-medium transition-colors ${
-            activeTab === 'gastos' ? 'text-rose-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <ShoppingBag className="w-5 h-5" />
-          <span>Gastos</span>
-        </button>
-      </div>
-
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex items-center justify-around">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-[11px] transition-colors ${
+              activeTab === t.id ? 'text-blue-600 font-bold' : 'text-slate-500 font-medium'
+            }`}
+          >
+            {t.icon}
+            <span>{t.label.split(' ')[0]}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

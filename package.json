@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
+    "test": "node --experimental-strip-types --no-warnings tests/run.ts",
     "lint": "oxlint",
     "preview": "vite preview",
     "desktop:build": "npm run build && npx @electron/packager . FluxoFinanceiro --platform=win32 --arch=x64 --icon=public/app-icon.ico --out=desktop/dist --overwrite --ignore=\"node_modules|src|\\.git|mobile\"",

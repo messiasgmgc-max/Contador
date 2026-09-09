@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import type { UserProfile } from '../types/finance';
+import { verifyPassword } from '../lib/hash';
 import { Wallet, UserPlus, LogIn, Shield, Users, Check, Sparkles, Edit3, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
 
 interface LoginScreenProps {
   users: UserProfile[];
-  onSelectUser: (user: UserProfile) => void;
+  /** typedPassword é repassado para regravar em hash uma senha em formato antigo. */
+  onSelectUser: (user: UserProfile, typedPassword?: string) => void;
   onCreateUser: (name: string, color: string, password?: string) => Promise<UserProfile | null>;
   onUpdateUser?: (id: string, name: string, password?: string) => Promise<boolean>;
   isLoading: boolean;
@@ -59,8 +61,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     e.preventDefault();
     if (!selectedUserForAuth) return;
 
-    if (selectedUserForAuth.passwordHash === authPassword) {
-      onSelectUser(selectedUserForAuth);
+    // A senha guardada é um hash SHA-256; verifyPassword também aceita o
+    // formato antigo em texto puro para não trancar ninguém depois da migração.
+    if (verifyPassword(selectedUserForAuth, authPassword)) {
+      onSelectUser(selectedUserForAuth, authPassword);
       setSelectedUserForAuth(null);
       setAuthPassword('');
     } else {
@@ -79,8 +83,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       if (created) {
         onSelectUser(created);
       }
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Erro ao criar conta no banco online.');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Erro ao criar conta no banco online.');
     } finally {
       setSubmitting(false);
     }
@@ -213,7 +217,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                               type="button"
                               onClick={async () => {
                                 if (!editName.trim() || !onUpdateUser) return;
-                                await onUpdateUser(u.id, editName.trim(), editPassword.trim() ? editPassword.trim() : u.passwordHash);
+                                // Campo vazio = manter a senha atual. Passar o hash aqui faria o
+                                // app hashear o hash e trancar o perfil para fora.
+                                await onUpdateUser(u.id, editName.trim(), editPassword.trim() || undefined);
                                 setEditingUserId(null);
                                 setEditPassword('');
                               }}
