@@ -140,33 +140,74 @@ ALTER TABLE public.finance_incomes  ADD COLUMN IF NOT EXISTS user_name TEXT;
 ALTER TABLE public.finance_debts    ADD COLUMN IF NOT EXISTS user_name TEXT;
 ALTER TABLE public.finance_expenses ADD COLUMN IF NOT EXISTS user_name TEXT;
 
--- Garantir o tipo/FK de user_id em finance_expenses caso a tabela tenha sido
--- criada por um caminho torto (o CREATE da v1 não rodava)
+-- Garantir o tipo e a FK de user_id nas três tabelas.
+--
+-- Dois estragos aparecem em bancos que já rodaram versões antigas:
+--   a) finance_expenses.user_id sem tipo (o CREATE da v1 não rodava)
+--   b) a FK de user_id apontando para OUTRA tabela (auth.users, public.users),
+--      e não para public.finance_users. Nesse estado o passo 4 abaixo falha com
+--      "violates foreign key constraint ... is not present in table users",
+--      porque o id do perfil não existe na tabela errada.
+-- Aqui a FK errada é derrubada, os órfãos viram NULL e a FK certa é recriada.
 DO $$
 DECLARE
+    t TEXT;
     col_type TEXT;
+    con RECORD;
 BEGIN
-    SELECT data_type INTO col_type
-      FROM information_schema.columns
-     WHERE table_schema = 'public' AND table_name = 'finance_expenses' AND column_name = 'user_id';
+    -- (a) tipo da coluna
+    FOREACH t IN ARRAY ARRAY['finance_incomes','finance_debts','finance_expenses'] LOOP
+        SELECT data_type INTO col_type
+          FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = t AND column_name = 'user_id';
 
-    IF col_type IS NULL THEN
-        ALTER TABLE public.finance_expenses ADD COLUMN user_id UUID;
-    ELSIF col_type <> 'uuid' THEN
-        ALTER TABLE public.finance_expenses
-            ALTER COLUMN user_id TYPE UUID USING NULLIF(user_id::TEXT, '')::UUID;
-    END IF;
+        IF col_type IS NULL THEN
+            EXECUTE format('ALTER TABLE public.%I ADD COLUMN user_id UUID', t);
+        ELSIF col_type <> 'uuid' THEN
+            EXECUTE format(
+                'ALTER TABLE public.%I ALTER COLUMN user_id TYPE UUID USING NULLIF(user_id::TEXT, '''')::UUID', t);
+        END IF;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.table_constraints
-         WHERE table_schema = 'public'
-           AND table_name = 'finance_expenses'
-           AND constraint_name = 'finance_expenses_user_id_fkey'
-    ) THEN
-        ALTER TABLE public.finance_expenses
-            ADD CONSTRAINT finance_expenses_user_id_fkey
-            FOREIGN KEY (user_id) REFERENCES public.finance_users(id) ON DELETE SET NULL;
-    END IF;
+        -- (b) qualquer FK de user_id que não aponte para public.finance_users
+        FOR con IN
+            SELECT c.conname,
+                   nf.nspname AS alvo_schema,
+                   cf.relname AS alvo_tabela
+              FROM pg_constraint c
+              JOIN pg_class cl      ON cl.oid = c.conrelid
+              JOIN pg_namespace n   ON n.oid = cl.relnamespace
+              LEFT JOIN pg_class cf     ON cf.oid = c.confrelid
+              LEFT JOIN pg_namespace nf ON nf.oid = cf.relnamespace
+             WHERE c.contype = 'f'
+               AND n.nspname = 'public'
+               AND cl.relname = t
+               AND pg_get_constraintdef(c.oid) LIKE 'FOREIGN KEY (user_id)%'
+        LOOP
+            IF con.alvo_schema IS DISTINCT FROM 'public'
+               OR con.alvo_tabela IS DISTINCT FROM 'finance_users' THEN
+                EXECUTE format('ALTER TABLE public.%I DROP CONSTRAINT %I', t, con.conname);
+            END IF;
+        END LOOP;
+
+        -- Órfãos viram NULL, senão a FK não passa na validação
+        EXECUTE format(
+            'UPDATE public.%I SET user_id = NULL '
+            ' WHERE user_id IS NOT NULL '
+            '   AND NOT EXISTS (SELECT 1 FROM public.finance_users u WHERE u.id = %I.user_id)', t, t);
+
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_constraint c
+              JOIN pg_class cl    ON cl.oid = c.conrelid
+              JOIN pg_namespace n ON n.oid = cl.relnamespace
+             WHERE c.contype = 'f' AND n.nspname = 'public' AND cl.relname = t
+               AND pg_get_constraintdef(c.oid) LIKE 'FOREIGN KEY (user_id)%'
+        ) THEN
+            EXECUTE format(
+                'ALTER TABLE public.%I ADD CONSTRAINT %I FOREIGN KEY (user_id) '
+                'REFERENCES public.finance_users(id) ON DELETE SET NULL', t, t || '_user_id_fkey');
+        END IF;
+    END LOOP;
 END $$;
 
 -- ==============================================================================
