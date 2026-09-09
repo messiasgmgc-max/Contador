@@ -22,6 +22,17 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ==============================================================================
+-- 0. DERRUBAR AS VIEWS ANTIGAS ANTES DE MEXER NAS COLUNAS
+--
+-- Uma view que lê cycle_week/user_id prende a coluna: o ALTER COLUMN e o
+-- DROP COLUMN mais adiante falham com "cannot drop column ... because other
+-- objects depend on it". Elas são recriadas no passo 7.
+-- ==============================================================================
+
+DROP VIEW IF EXISTS public.v_finance_weekly_summary;
+DROP VIEW IF EXISTS public.v_finance_monthly_summary;
+
+-- ==============================================================================
 -- 1. FUNÇÕES DE PERÍODO
 -- Semana do mês a partir da data: dias 1-7 => 1, 8-14 => 2, 15-21 => 3, 22+ => 4.
 -- IMMUTABLE é obrigatório para poder ser usada em coluna gerada.
@@ -59,6 +70,9 @@ CREATE TABLE IF NOT EXISTS public.finance_users (
 );
 
 ALTER TABLE public.finance_users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE public.finance_users ADD COLUMN IF NOT EXISTS avatar_color TEXT NOT NULL DEFAULT 'blue';
+ALTER TABLE public.finance_users ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.finance_users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW());
 
 -- Migrar senhas antigas guardadas como "cor:::senha" dentro de avatar_color.
 -- A senha antiga estava em texto puro; ela é movida como está e o app a
@@ -139,6 +153,12 @@ ALTER TABLE public.finance_expenses ADD COLUMN IF NOT EXISTS series_id UUID;
 ALTER TABLE public.finance_incomes  ADD COLUMN IF NOT EXISTS user_name TEXT;
 ALTER TABLE public.finance_debts    ADD COLUMN IF NOT EXISTS user_name TEXT;
 ALTER TABLE public.finance_expenses ADD COLUMN IF NOT EXISTS user_name TEXT;
+ALTER TABLE public.finance_incomes  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW());
+ALTER TABLE public.finance_debts    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW());
+ALTER TABLE public.finance_expenses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW());
+ALTER TABLE public.finance_incomes  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW());
+ALTER TABLE public.finance_debts    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW());
+ALTER TABLE public.finance_expenses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW());
 
 -- Garantir o tipo e a FK de user_id nas três tabelas.
 --
@@ -282,7 +302,7 @@ BEGIN
                 t.tbl, t.datecol);
         ELSIF is_gen <> 'ALWAYS' THEN
             -- coluna manual da v1: derruba e recria como gerada
-            EXECUTE format('ALTER TABLE public.%I DROP COLUMN cycle_week', t.tbl);
+            EXECUTE format('ALTER TABLE public.%I DROP COLUMN cycle_week CASCADE', t.tbl);
             EXECUTE format(
                 'ALTER TABLE public.%I ADD COLUMN cycle_week INT GENERATED ALWAYS AS (public.fn_cycle_week(%I)) STORED',
                 t.tbl, t.datecol);
@@ -298,7 +318,7 @@ BEGIN
                 'ALTER TABLE public.%I ADD COLUMN reference_month DATE GENERATED ALWAYS AS (public.fn_reference_month(%I)) STORED',
                 t.tbl, t.datecol);
         ELSIF is_gen <> 'ALWAYS' THEN
-            EXECUTE format('ALTER TABLE public.%I DROP COLUMN reference_month', t.tbl);
+            EXECUTE format('ALTER TABLE public.%I DROP COLUMN reference_month CASCADE', t.tbl);
             EXECUTE format(
                 'ALTER TABLE public.%I ADD COLUMN reference_month DATE GENERATED ALWAYS AS (public.fn_reference_month(%I)) STORED',
                 t.tbl, t.datecol);
@@ -360,9 +380,7 @@ END $$;
 -- previsto menos as saídas. Aqui saldo_realizado = recebido - efetivamente pago.
 -- ==============================================================================
 
-DROP VIEW IF EXISTS public.v_finance_weekly_summary;
-
-CREATE OR REPLACE VIEW public.v_finance_monthly_summary AS
+CREATE VIEW public.v_finance_monthly_summary AS
 WITH base AS (
     SELECT reference_month, cycle_week, user_id,
            amount AS income_planned,
