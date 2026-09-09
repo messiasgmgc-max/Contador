@@ -28,8 +28,23 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      # Sem estas duas o bundle sai sem Supabase e o APK abre em branco.
+      # Cadastre-as em Settings > Secrets and variables > Actions.
+      - name: Conferir as variáveis do Supabase
+        run: |
+          if [ -z "${VITE_SUPABASE_URL}" ] || [ -z "${VITE_SUPABASE_ANON_KEY}" ]; then
+            echo "::error::Faltam os secrets VITE_SUPABASE_URL e/ou VITE_SUPABASE_ANON_KEY."
+            exit 1
+          fi
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
       - name: Gerar build web do projeto
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Sincronizar Capacitor com a pasta mobile
         run: npx cap sync
