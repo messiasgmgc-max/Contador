@@ -7,6 +7,7 @@ import type { UserProfile, IncomeItem, DebtItem, ExpenseItem } from '../types/fi
 import { formatBRL } from './period';
 
 const STORAGE_KEY = 'finance_gemini_api_key';
+export const GEMINI_MODEL = 'gemini-3.6-flash';
 
 export function getStoredGeminiApiKey(): string {
   return localStorage.getItem(STORAGE_KEY) || (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
@@ -101,8 +102,6 @@ export async function askGemini(prompt: string, ctx: FinancialContext, apiKey?: 
   }
 
   const systemInstruction = buildContextPrompt(ctx);
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-
   const payload = {
     system_instruction: {
       parts: [{ text: systemInstruction }]
@@ -119,11 +118,20 @@ export async function askGemini(prompt: string, ctx: FinancialContext, apiKey?: 
     }
   };
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  const callModel = async (model: string) => {
+    return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  };
+
+  let response = await callModel(GEMINI_MODEL);
+
+  // Fallback caso o modelo especificado não esteja disponível na conta/região
+  if (!response.ok && (response.status === 404 || response.status === 400)) {
+    response = await callModel('gemini-2.5-flash');
+  }
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
@@ -152,8 +160,6 @@ export async function parseTransactionWithGemini(
   if (!key) throw new Error('Chave de API do Gemini necessária.');
 
   const today = new Date().toISOString().split('T')[0];
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-
   const prompt = `
 Analise a mensagem do usuário e extraia se é um GASTO, RECEITA ou DÍVIDA.
 Hoje é dia ${today}.
@@ -173,14 +179,23 @@ Retorne APENAS um objeto JSON válido (sem markdown, sem \`\`\`json) no seguinte
 Mensagem do usuário: "${text}"
 `;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
-    })
-  });
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
+  };
+
+  const callModel = async (model: string) => {
+    return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  };
+
+  let response = await callModel(GEMINI_MODEL);
+  if (!response.ok && (response.status === 404 || response.status === 400)) {
+    response = await callModel('gemini-2.5-flash');
+  }
 
   if (!response.ok) return null;
   const data = await response.json();
@@ -193,3 +208,4 @@ Mensagem do usuário: "${text}"
     return null;
   }
 }
+
