@@ -9,6 +9,8 @@ jobs:
   build-apk:
     name: Compilar APK Android
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repositório
         uses: actions/checkout@v4
@@ -64,3 +66,22 @@ jobs:
           name: FluxoFinanceiro-Android-APK
           path: ./FluxoFinanceiro.apk
           retention-days: 30
+
+      - name: Publicar Release no GitHub com APK avulso (sem zip)
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          tag_name: latest
+          name: Versão mais recente (APK Direto)
+          body: |
+            ### 📱 Download direto do APK (sem necessidade de descompactar .zip)
+            Baixe o arquivo **`FluxoFinanceiro.apk`** diretamente abaixo para instalar no seu celular Android.
+            
+            - Atualizado automaticamente pelo GitHub Actions
+            - Inclui suporte ao Google Agenda e Inteligência Gemini
+          draft: false
+          prerelease: false
+          files: |
+            ./FluxoFinanceiro.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
