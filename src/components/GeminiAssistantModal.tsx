@@ -167,7 +167,7 @@ export const GeminiAssistantModal: React.FC<Props> = ({
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="text-base font-black tracking-tight">Gemini Financeiro</h3>
-                <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full">2.5 Flash</span>
+                <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full">3.6 Flash</span>
               </div>
               <p className="text-xs text-white/80">Inteligência Pessoal integrada ao seu caixa</p>
             </div>

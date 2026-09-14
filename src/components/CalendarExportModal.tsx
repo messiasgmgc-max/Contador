@@ -17,7 +17,15 @@ export const CalendarExportModal: React.FC<Props> = ({
   monthKey,
   events,
 }) => {
+  const [downloaded, setDownloaded] = React.useState(false);
+
   if (!isOpen) return null;
+
+  const handleDownload = () => {
+    void downloadIcsFile(`financeiro-${monthKey}`, events);
+    setDownloaded(true);
+    setTimeout(() => setDownloaded(false), 3000);
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
@@ -49,16 +57,18 @@ export const CalendarExportModal: React.FC<Props> = ({
         {/* Botão de Download em Lote (.ics) */}
         <div className="p-4 bg-slate-50 border-b border-slate-200">
           <button
-            onClick={() => {
-              void downloadIcsFile(`financeiro-${monthKey}`, events);
-            }}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md cursor-pointer transition-all"
+            onClick={handleDownload}
+            className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl font-bold text-xs sm:text-sm shadow-md cursor-pointer transition-all ${
+              downloaded
+                ? 'bg-emerald-600 text-white'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
             <Download className="w-4 h-4" />
-            <span>Baixar Arquivo Completo da Agenda (.ics)</span>
+            <span>{downloaded ? '✓ Arquivo .ics Baixado com Sucesso!' : 'Baixar Arquivo Completo da Agenda (.ics)'}</span>
           </button>
           <p className="text-[10px] text-slate-500 text-center mt-2">
-            Compatível com Google Agenda, Apple Agenda e Outlook. No celular, toque para abrir e importar tudo de uma vez.
+            Compatível com Google Agenda, Apple Agenda e Outlook. Abra o arquivo no celular ou PC para importar tudo.
           </p>
         </div>
 

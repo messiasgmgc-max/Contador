@@ -10,6 +10,7 @@ import { supabase } from './supabase';
 
 const STORAGE_KEY = 'finance_gemini_api_key';
 export const GEMINI_MODEL = 'gemini-3.6-flash';
+export const GEMINI_FALLBACK_MODELS = ['gemini-3.7-flash', 'gemini-3.8'];
 
 export function getStoredGeminiApiKey(): string {
   return localStorage.getItem(STORAGE_KEY) || (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
@@ -130,6 +131,58 @@ Ajude ${ctx.currentUser.name} com análises rápidas, identificação de semanas
 }
 
 /**
+ * Utilitário para executar chamada ao Gemini com timeout e lista de fallback para modelos 3.x
+ */
+async function fetchWithTimeoutAndFallback(
+  key: string,
+  payload: any,
+  models: string[] = [GEMINI_MODEL, ...GEMINI_FALLBACK_MODELS],
+  timeoutMs = 25000
+): Promise<Response> {
+  let lastResponse: Response | null = null;
+  let lastError: any = null;
+
+  for (const model of models) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        }
+      );
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        return response;
+      }
+
+      lastResponse = response;
+      // Se for 404 (modelo não existe na versão/região), tenta o próximo modelo 3.x
+      if (response.status !== 404 && response.status !== 400) {
+        // Se for 401 ou 403 (chave errada), não adianta tentar outros modelos
+        return response;
+      }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        lastError = new Error('Tempo limite de resposta excedido (25 segundos). O Gemini demorou muito para responder.');
+      } else {
+        lastError = err;
+      }
+    }
+  }
+
+  if (lastResponse) return lastResponse;
+  throw lastError || new Error('Não foi possível obter resposta dos modelos Gemini.');
+}
+
+/**
  * Chamada à API do Gemini via fetch direto (sem dependências pesadas)
  */
 export async function askGemini(prompt: string, ctx: FinancialContext, apiKey?: string): Promise<string> {
@@ -155,20 +208,7 @@ export async function askGemini(prompt: string, ctx: FinancialContext, apiKey?: 
     }
   };
 
-  const callModel = async (model: string) => {
-    return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  };
-
-  let response = await callModel(GEMINI_MODEL);
-
-  // Fallback caso o modelo especificado não esteja disponível na conta/região
-  if (!response.ok && (response.status === 404 || response.status === 400)) {
-    response = await callModel('gemini-2.5-flash');
-  }
+  const response = await fetchWithTimeoutAndFallback(key, payload);
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
@@ -221,25 +261,13 @@ Mensagem do usuário: "${text}"
     generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
   };
 
-  const callModel = async (model: string) => {
-    return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  };
-
-  let response = await callModel(GEMINI_MODEL);
-  if (!response.ok && (response.status === 404 || response.status === 400)) {
-    response = await callModel('gemini-2.5-flash');
-  }
-
-  if (!response.ok) return null;
-  const data = await response.json();
-  const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawJson) return null;
-
   try {
+    const response = await fetchWithTimeoutAndFallback(key, payload, [GEMINI_MODEL, ...GEMINI_FALLBACK_MODELS], 20000);
+    if (!response.ok) return null;
+    const data = await response.json();
+    const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawJson) return null;
+
     return JSON.parse(rawJson) as ExtractedTransaction;
   } catch {
     return null;
