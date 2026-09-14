@@ -17,7 +17,8 @@ import {
   RefreshCw, LogOut, Edit3, TriangleAlert, Calendar, Sparkles, Download, ArrowDownCircle
 } from 'lucide-react';
 import { GeminiAssistantModal } from './components/GeminiAssistantModal';
-import { downloadIcsFile, type CalendarEventData } from './lib/calendar';
+import { CalendarExportModal } from './components/CalendarExportModal';
+import { type CalendarEventData } from './lib/calendar';
 import type { ExtractedTransaction } from './lib/gemini';
 import { checkForAppUpdates, type UpdateInfo } from './lib/updater';
 
@@ -45,6 +46,8 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('geral');
   const [showEdit, setShowEdit] = useState(false);
   const [showGemini, setShowGemini] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEventData[]>([]);
   const [editName, setEditName] = useState('');
   const [editPassword, setEditPassword] = useState('');
 
@@ -81,12 +84,8 @@ function App() {
       }
     }
 
-    if (events.length === 0) {
-      alert('Nenhum vencimento ou pagamento pendente encontrado neste mês para exportar.');
-      return;
-    }
-
-    downloadIcsFile(`financeiro-${monthKey}`, events);
+    setCalendarEvents(events);
+    setShowCalendarModal(true);
   };
 
   const handleExecuteGeminiTransaction = async (tx: ExtractedTransaction) => {
@@ -538,6 +537,15 @@ function App() {
             expenses,
           }}
           onExecuteTransaction={handleExecuteGeminiTransaction}
+        />
+      )}
+
+      {showCalendarModal && (
+        <CalendarExportModal
+          isOpen={showCalendarModal}
+          onClose={() => setShowCalendarModal(false)}
+          monthKey={monthKey}
+          events={calendarEvents}
         />
       )}
     </div>

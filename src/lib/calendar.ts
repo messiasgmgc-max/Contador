@@ -53,8 +53,9 @@ export function openGoogleCalendar(event: CalendarEventData): void {
 
 /**
  * Gera e baixa um arquivo universal .ics com múltiplos eventos (para Google Agenda, Apple, Outlook)
+ * Compatível com Web, Celular (Android/iOS) e Desktop
  */
-export function downloadIcsFile(filename: string, events: CalendarEventData[]): void {
+export async function downloadIcsFile(filename: string, events: CalendarEventData[]): Promise<void> {
   if (events.length === 0) return;
 
   const ics: string[] = [
@@ -81,8 +82,8 @@ export function downloadIcsFile(filename: string, events: CalendarEventData[]): 
       `DTSTAMP:${start}T000000Z`,
       `DTSTART;VALUE=DATE:${start}`,
       `DTEND;VALUE=DATE:${end}`,
-      `SUMMARY:${evt.title.replace(/[,;]/g, ' ')}`,
-      `DESCRIPTION:${evt.description.replace(/[\n\r]+/g, ' ')}`,
+      `SUMMARY:${evt.title.replace(/[,;\n\r]/g, ' ')}`,
+      `DESCRIPTION:${evt.description.replace(/[\n\r]+/g, ' \\n ')}`,
       'BEGIN:VALARM',
       'TRIGGER:-P1D',
       'ACTION:DISPLAY',
@@ -93,13 +94,42 @@ export function downloadIcsFile(filename: string, events: CalendarEventData[]): 
   }
 
   ics.push('END:VCALENDAR');
-  const blob = new Blob([ics.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename.endsWith('.ics') ? filename : `${filename}.ics`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const icsContent = ics.join('\r\n');
+  const cleanFilename = filename.endsWith('.ics') ? filename : `${filename}.ics`;
+
+  // No celular, se o Web Share API com arquivos for suportado, permite abrir direto no Google Agenda
+  try {
+    const file = new File([icsContent], cleanFilename, { type: 'text/calendar' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: 'Vencimentos do Mês - Fluxo Financeiro',
+        text: 'Importe os vencimentos do mês no seu Google Agenda ou calendário do celular.',
+      });
+      return;
+    }
+  } catch {
+    // Se o usuário cancelar ou o Web Share falhar, continua para o download clássico
+  }
+
+  // Fallback para download via Blob URL
+  try {
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = cleanFilename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
+  } catch {
+    // Fallback para Data URI
+    const encoded = encodeURIComponent(icsContent);
+    window.open(`data:text/calendar;charset=utf-8,${encoded}`, '_blank');
+  }
 }
+

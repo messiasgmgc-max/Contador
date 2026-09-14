@@ -6,6 +6,8 @@
 import type { UserProfile, IncomeItem, DebtItem, ExpenseItem } from '../types/finance';
 import { formatBRL } from './period';
 
+import { supabase } from './supabase';
+
 const STORAGE_KEY = 'finance_gemini_api_key';
 export const GEMINI_MODEL = 'gemini-3.6-flash';
 
@@ -18,6 +20,41 @@ export function setStoredGeminiApiKey(key: string): void {
     localStorage.removeItem(STORAGE_KEY);
   } else {
     localStorage.setItem(STORAGE_KEY, key.trim());
+  }
+}
+
+/**
+ * Carrega a chave do Gemini salva nas configurações globais do Supabase
+ */
+export async function loadGeminiApiKeyFromCloud(): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('finance_settings')
+      .select('value')
+      .eq('key', 'gemini_api_key')
+      .maybeSingle();
+
+    if (data?.value) {
+      setStoredGeminiApiKey(data.value);
+      return data.value;
+    }
+  } catch {
+    // Se a tabela não existir, tenta carregar de users ou mantém o local
+  }
+  return getStoredGeminiApiKey();
+}
+
+/**
+ * Salva a chave do Gemini no Supabase para sincronizar entre todos os aparelhos
+ */
+export async function saveGeminiApiKeyToCloud(key: string): Promise<void> {
+  setStoredGeminiApiKey(key);
+  try {
+    await supabase
+      .from('finance_settings')
+      .upsert({ key: 'gemini_api_key', value: key.trim() }, { onConflict: 'key' });
+  } catch (err) {
+    console.warn('Não foi possível salvar a chave no finance_settings do Supabase:', err);
   }
 }
 

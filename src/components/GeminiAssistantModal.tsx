@@ -4,7 +4,8 @@ import {
   askGemini,
   parseTransactionWithGemini,
   getStoredGeminiApiKey,
-  setStoredGeminiApiKey,
+  saveGeminiApiKeyToCloud,
+  loadGeminiApiKeyFromCloud,
   type ExtractedTransaction
 } from '../lib/gemini';
 import { formatBRL } from '../lib/period';
@@ -33,6 +34,7 @@ export const GeminiAssistantModal: React.FC<Props> = ({
 }) => {
   const [apiKey, setApiKey] = useState(getStoredGeminiApiKey());
   const [showConfig, setShowConfig] = useState(false);
+  const [savingKey, setSavingKey] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -47,15 +49,20 @@ export const GeminiAssistantModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (isOpen) {
+      void loadGeminiApiKeyFromCloud().then((k) => {
+        if (k) setApiKey(k);
+      });
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSaveApiKey = (e: React.FormEvent) => {
+  const handleSaveApiKey = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStoredGeminiApiKey(apiKey);
+    setSavingKey(true);
+    await saveGeminiApiKeyToCloud(apiKey);
+    setSavingKey(false);
     setShowConfig(false);
   };
 
@@ -201,9 +208,10 @@ export const GeminiAssistantModal: React.FC<Props> = ({
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 cursor-pointer shrink-0"
+                  disabled={savingKey}
+                  className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 cursor-pointer shrink-0 disabled:opacity-50"
                 >
-                  Salvar
+                  {savingKey ? 'Salvando...' : 'Salvar no Supabase'}
                 </button>
               </div>
               <p className="text-[11px] text-slate-500">
