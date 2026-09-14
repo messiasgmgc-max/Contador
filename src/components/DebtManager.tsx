@@ -5,7 +5,8 @@ import type {
 import { RecurrenceSelector } from './RecurrenceSelector';
 import { inputCls, cancelCls, Field, Tag } from './ui';
 import { formatBRL, formatBR, cycleWeekOf, currentMonthKey, todayISO } from '../lib/period';
-import { Plus, Trash2, CreditCard, User, Repeat, Check, CircleCheck, Pencil, X } from 'lucide-react';
+import { openGoogleCalendar } from '../lib/calendar';
+import { Plus, Trash2, CreditCard, User, Repeat, Check, CircleCheck, Pencil, X, Calendar } from 'lucide-react';
 
 interface Props {
   debts: DebtItem[];
@@ -354,6 +355,18 @@ export const DebtManager: React.FC<Props> = ({
                   {quitada && (
                     <CircleCheck className="w-5 h-5 text-emerald-600 shrink-0" />
                   )}
+
+                  <button
+                    onClick={() => openGoogleCalendar({
+                      title: `Vencimento: ${item.creditor} (${formatBRL(item.installmentAmount)})`,
+                      description: `Pagamento de dívida no Fluxo Financeiro.\nCredor: ${item.creditor}\nDescrição: ${item.description || '-'}\nParcela: ${item.currentInstallment}/${item.totalInstallments}\nValor: ${formatBRL(item.installmentAmount)}`,
+                      startDate: item.dueDate,
+                    })}
+                    title="Adicionar lembrete no Google Agenda"
+                    className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                  >
+                    <Calendar className="w-4 h-4" />
+                  </button>
 
                   <button
                     onClick={() => abrirEdicao(item)}

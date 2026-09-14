@@ -6,7 +6,8 @@ import { RecurrenceSelector } from './RecurrenceSelector';
 import { EXPENSE_CATEGORIES, CATEGORY_LABEL, categoryIcon } from './expenseCategories';
 import { inputCls, cancelCls, Field, Tag } from './ui';
 import { formatBRL, formatBR, cycleWeekOf, currentMonthKey, todayISO } from '../lib/period';
-import { Plus, Check, Trash2, ShoppingBag, User, Repeat, Filter, X, Pencil } from 'lucide-react';
+import { openGoogleCalendar } from '../lib/calendar';
+import { Plus, Check, Trash2, ShoppingBag, User, Repeat, Filter, X, Pencil, Calendar } from 'lucide-react';
 
 interface Props {
   expenses: ExpenseItem[];
@@ -367,6 +368,17 @@ export const ExpenseManager: React.FC<Props> = ({
               <span className="text-sm sm:text-base font-bold text-rose-600 whitespace-nowrap">
                 − {formatBRL(item.amount)}
               </span>
+              <button
+                onClick={() => openGoogleCalendar({
+                  title: `Conta: ${item.description} (${formatBRL(item.amount)})`,
+                  description: `Despesa no Fluxo Financeiro.\nDescrição: ${item.description}\nCategoria: ${CATEGORY_LABEL[item.category]}\nValor: ${formatBRL(item.amount)}\nSituação: ${item.paid ? 'Pago' : 'Pendente'}`,
+                  startDate: item.date,
+                })}
+                title="Adicionar à Google Agenda"
+                className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+              >
+                <Calendar className="w-4 h-4" />
+              </button>
               <button
                 onClick={() => abrirEdicao(item)}
                 title="Editar valor, data, categoria..."

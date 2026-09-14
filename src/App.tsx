@@ -14,8 +14,11 @@ import { monthLabel } from './lib/period';
 import type { WeekNumber, UserProfile } from './types/finance';
 import {
   Wallet, ArrowUpRight, CreditCard, ShoppingBag, Layers,
-  RefreshCw, LogOut, Edit3, TriangleAlert,
+  RefreshCw, LogOut, Edit3, TriangleAlert, Calendar, Sparkles
 } from 'lucide-react';
+import { GeminiAssistantModal } from './components/GeminiAssistantModal';
+import { downloadIcsFile, type CalendarEventData } from './lib/calendar';
+import type { ExtractedTransaction } from './lib/gemini';
 
 type Tab = 'geral' | 'receitas' | 'dividas' | 'gastos';
 
@@ -40,8 +43,90 @@ function App() {
   const [selectedWeek, setSelectedWeek] = useState<WeekNumber | 'ALL'>('ALL');
   const [activeTab, setActiveTab] = useState<Tab>('geral');
   const [showEdit, setShowEdit] = useState(false);
+  const [showGemini, setShowGemini] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPassword, setEditPassword] = useState('');
+
+  const handleExportMonthToCalendar = () => {
+    const events: CalendarEventData[] = [];
+
+    for (const d of debts) {
+      if (d.status !== 'Pago') {
+        events.push({
+          title: `Pagar: ${d.creditor} (${d.currentInstallment}/${d.totalInstallments})`,
+          description: `Vencimento da parcela de ${d.creditor}. Valor: R$ ${d.installmentAmount.toFixed(2)}.`,
+          startDate: d.dueDate,
+        });
+      }
+    }
+
+    for (const inc of incomes) {
+      if (!inc.received) {
+        events.push({
+          title: `Receber: ${inc.description}`,
+          description: `Previsão de recebimento (${inc.category}). Valor: R$ ${inc.amount.toFixed(2)}.`,
+          startDate: inc.expectedDate,
+        });
+      }
+    }
+
+    for (const exp of expenses) {
+      if (!exp.paid) {
+        events.push({
+          title: `Gasto: ${exp.description}`,
+          description: `Gasto previsto (${exp.category}). Valor: R$ ${exp.amount.toFixed(2)}.`,
+          startDate: exp.date,
+        });
+      }
+    }
+
+    if (events.length === 0) {
+      alert('Nenhum vencimento ou pagamento pendente encontrado neste mês para exportar.');
+      return;
+    }
+
+    downloadIcsFile(`financeiro-${monthKey}`, events);
+  };
+
+  const handleExecuteGeminiTransaction = async (tx: ExtractedTransaction) => {
+    if (!currentUser) return;
+    if (tx.type === 'receita') {
+      await actions.addIncome({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        description: tx.description,
+        amount: tx.amount,
+        expectedDate: tx.date,
+        category: (tx.category as any) || 'Outro',
+        received: false,
+      });
+    } else if (tx.type === 'divida') {
+      const installments = tx.installments || 1;
+      await actions.addDebt({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        creditor: tx.creditor || tx.description,
+        description: tx.description,
+        totalAmount: tx.amount * installments,
+        installmentAmount: tx.amount,
+        currentInstallment: 1,
+        totalInstallments: installments,
+        dueDate: tx.date,
+        status: 'Pendente',
+      });
+    } else {
+      await actions.addExpense({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        description: tx.description,
+        amount: tx.amount,
+        date: tx.date,
+        category: (tx.category as any) || 'Outros',
+        isFixed: false,
+        paid: false,
+      });
+    }
+  };
 
   // Mantém o filtro de usuário e a cópia local do perfil em dia
   useEffect(() => {
@@ -148,6 +233,15 @@ function App() {
 
           <div className="flex items-center gap-2 shrink-0">
             <button
+              onClick={() => setShowGemini(true)}
+              title="Assistente Financeiro Gemini"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-xs cursor-pointer transition-all"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden sm:inline">IA Financeira</span>
+            </button>
+
+            <button
               onClick={() => void reloadFromSupabase()}
               title={isSupabaseConnected ? 'Sincronizar' : 'Sem conexão — tentar de novo'}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs cursor-pointer hover:bg-slate-200"
@@ -229,7 +323,18 @@ function App() {
           </div>
         )}
 
-        <MonthNavigator monthKey={monthKey} availableMonths={availableMonths} onChange={setMonthKey} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <MonthNavigator monthKey={monthKey} availableMonths={availableMonths} onChange={setMonthKey} />
+          
+          <button
+            onClick={handleExportMonthToCalendar}
+            title="Exportar todos os vencimentos e contas do mês para o Google Agenda (.ics)"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer shadow-xs self-start sm:self-auto"
+          >
+            <Calendar className="w-3.5 h-3.5 text-blue-600" />
+            <span>Sincronizar Mês na Agenda</span>
+          </button>
+        </div>
 
         {isLoading ? (
           <div className="py-20 text-center text-sm text-slate-400">Carregando seus dados...</div>
@@ -333,7 +438,36 @@ function App() {
             <span>{t.label.split(' ')[0]}</span>
           </button>
         ))}
+        <button
+          onClick={() => setShowGemini(true)}
+          className="flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-[11px] text-indigo-600 font-bold"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+          <span>IA</span>
+        </button>
       </nav>
+
+      {showGemini && (
+        <GeminiAssistantModal
+          isOpen={showGemini}
+          onClose={() => setShowGemini(false)}
+          financialContext={{
+            currentUser,
+            monthKey,
+            summary: {
+              totalIncome: summary.incomePlanned,
+              totalDebts: summary.debts,
+              totalExpenses: summary.expenses,
+              totalOutgoing: summary.outgoing,
+              netBalance: summary.balancePlanned,
+            },
+            incomes,
+            debts,
+            expenses,
+          }}
+          onExecuteTransaction={handleExecuteGeminiTransaction}
+        />
+      )}
     </div>
   );
 }

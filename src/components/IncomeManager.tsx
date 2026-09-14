@@ -5,6 +5,7 @@ import type {
 import { RecurrenceSelector } from './RecurrenceSelector';
 import { INCOME_CATEGORIES, INCOME_LABEL } from './expenseCategories';
 import { formatBRL, formatBR, cycleWeekOf, currentMonthKey, todayISO } from '../lib/period';
+import { openGoogleCalendar } from '../lib/calendar';
 import { Plus, Check, Trash2, Calendar, ArrowUpRight, User, Repeat, Pencil, X } from 'lucide-react';
 import { inputCls, cancelCls, Field, Tag } from './ui';
 
@@ -314,6 +315,17 @@ export const IncomeManager: React.FC<Props> = ({
               <span className="text-sm sm:text-base font-bold text-emerald-600 whitespace-nowrap">
                 + {formatBRL(item.amount)}
               </span>
+              <button
+                onClick={() => openGoogleCalendar({
+                  title: `Recebimento: ${item.description} (${formatBRL(item.amount)})`,
+                  description: `Previsão de recebimento no Fluxo Financeiro.\nDescrição: ${item.description}\nCategoria: ${INCOME_LABEL[item.category]}\nValor: ${formatBRL(item.amount)}`,
+                  startDate: item.expectedDate,
+                })}
+                title="Adicionar à Google Agenda"
+                className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+              >
+                <Calendar className="w-4 h-4" />
+              </button>
               <button
                 onClick={() => abrirEdicao(item)}
                 title="Editar valor, data, categoria..."
