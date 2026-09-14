@@ -14,11 +14,12 @@ import { monthLabel } from './lib/period';
 import type { WeekNumber, UserProfile } from './types/finance';
 import {
   Wallet, ArrowUpRight, CreditCard, ShoppingBag, Layers,
-  RefreshCw, LogOut, Edit3, TriangleAlert, Calendar, Sparkles
+  RefreshCw, LogOut, Edit3, TriangleAlert, Calendar, Sparkles, Download, ArrowDownCircle
 } from 'lucide-react';
 import { GeminiAssistantModal } from './components/GeminiAssistantModal';
 import { downloadIcsFile, type CalendarEventData } from './lib/calendar';
 import type { ExtractedTransaction } from './lib/gemini';
+import { checkForAppUpdates, type UpdateInfo } from './lib/updater';
 
 type Tab = 'geral' | 'receitas' | 'dividas' | 'gastos';
 
@@ -150,12 +151,31 @@ function App() {
     }
   }, [currentUser, users, isLoading, setActiveUserId]);
 
+  const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
+
+  // Checa se há atualização recente no GitHub
+  const checkUpdate = async () => {
+    const info = await checkForAppUpdates();
+    if (info && info.hasUpdate) {
+      setAvailableUpdate(info);
+    }
+  };
+
   const handleLogin = (user: UserProfile, typedPassword?: string) => {
     setCurrentUser(user);
     setActiveUserId(user.id);
     localStorage.setItem('finance_session_user', JSON.stringify(user));
     if (typedPassword) void upgradePasswordIfLegacy(user, typedPassword);
+    // Ao logar, verifica se há commit mais recente
+    void checkUpdate();
   };
+
+  useEffect(() => {
+    // Se o usuário já estava logado pela sessão, verifica na abertura
+    if (currentUser) {
+      void checkUpdate();
+    }
+  }, []);
 
   const handleLogout = () => {
     setCurrentUser(null);
@@ -319,6 +339,58 @@ function App() {
             <div className="min-w-0">
               <p className="text-xs font-bold text-rose-800">Erro ao falar com o Supabase</p>
               <p className="text-[11px] text-rose-700 break-words">{errorMessage}</p>
+            </div>
+          </div>
+        )}
+
+        {availableUpdate && (
+          <div className="rounded-2xl border border-indigo-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                <ArrowDownCircle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-indigo-950">Nova atualização disponível!</span>
+                  <span className="text-[10px] bg-indigo-200/60 text-indigo-800 font-mono px-1.5 py-0.5 rounded font-bold">
+                    {availableUpdate.latestCommitShort}
+                  </span>
+                </div>
+                <p className="text-[11px] text-indigo-800 truncate mt-0.5">
+                  "{availableUpdate.commitMessage}"
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  Mudanças no código estrutural prontas para atualizar.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              <button
+                onClick={() => setAvailableUpdate(null)}
+                className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer"
+              >
+                Depois
+              </button>
+
+              <button
+                onClick={() => {
+                  window.location.reload();
+                }}
+                title="Recarregar aplicação para puxar o código mais recente"
+                className="px-3 py-1.5 rounded-xl border border-indigo-300 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-bold cursor-pointer transition-all"
+              >
+                Atualizar Código
+              </button>
+
+              <a
+                href={availableUpdate.apkDownloadUrl}
+                download="FluxoFinanceiro.apk"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs cursor-pointer transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Baixar APK</span>
+              </a>
             </div>
           </div>
         )}
