@@ -67,17 +67,23 @@ jobs:
           path: ./FluxoFinanceiro.apk
           retention-days: 30
 
+      - name: Definir tag da versão
+        id: vars
+        run: echo "tag=v$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
+
       - name: Publicar Release no GitHub com APK avulso (sem zip)
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         with:
-          tag_name: latest
-          name: Versão mais recente (APK Direto)
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: Versão ${{ steps.vars.outputs.tag }} (APK Direto)
+          make_latest: true
           body: |
             ### 📱 Download direto do APK (sem necessidade de descompactar .zip)
             Baixe o arquivo **`FluxoFinanceiro.apk`** diretamente abaixo para instalar no seu celular Android.
             
             - Atualizado automaticamente pelo GitHub Actions
+            - Permite atualizar por cima de versões anteriores sem desinstalar
             - Inclui suporte ao Google Agenda e Inteligência Gemini
           draft: false
           prerelease: false
