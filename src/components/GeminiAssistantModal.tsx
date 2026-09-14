@@ -58,12 +58,23 @@ export const GeminiAssistantModal: React.FC<Props> = ({
 
   if (!isOpen) return null;
 
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
   const handleSaveApiKey = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingKey(true);
-    await saveGeminiApiKeyToCloud(apiKey);
+    setSaveStatus(null);
+    const res = await saveGeminiApiKeyToCloud(apiKey);
     setSavingKey(false);
-    setShowConfig(false);
+    if (res.success) {
+      setSaveStatus({ type: 'success', message: 'Chave salva com sucesso no Supabase!' });
+      setTimeout(() => setShowConfig(false), 1500);
+    } else {
+      setSaveStatus({
+        type: 'error',
+        message: `Salva localmente, mas falhou no Supabase: ${res.error}. Rode o SQL de finance_settings.`
+      });
+    }
   };
 
   const handleDiagnose = async () => {
@@ -217,6 +228,13 @@ export const GeminiAssistantModal: React.FC<Props> = ({
               <p className="text-[11px] text-slate-500">
                 Você pode obter uma chave gratuita no site <a href="https://aistudio.google.com" target="_blank" rel="noreferrer" className="text-blue-600 underline">aistudio.google.com</a>.
               </p>
+              {saveStatus && (
+                <div className={`p-2 rounded-xl text-xs font-semibold ${
+                  saveStatus.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                }`}>
+                  {saveStatus.message}
+                </div>
+              )}
             </form>
           </div>
         )}

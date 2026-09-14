@@ -65,11 +65,16 @@ export const CalendarExportModal: React.FC<Props> = ({
             }`}
           >
             <Download className="w-4 h-4" />
-            <span>{downloaded ? '✓ Arquivo .ics Baixado com Sucesso!' : 'Baixar Arquivo Completo da Agenda (.ics)'}</span>
+            <span>{downloaded ? '✓ Arquivo .ics Baixado na pasta Downloads!' : 'Baixar Arquivo Completo da Agenda (.ics)'}</span>
           </button>
-          <p className="text-[10px] text-slate-500 text-center mt-2">
-            Compatível com Google Agenda, Apple Agenda e Outlook. Abra o arquivo no celular ou PC para importar tudo.
-          </p>
+          <div className="mt-2.5 p-2 rounded-xl bg-blue-50/60 border border-blue-200/60 text-[11px] text-slate-600 space-y-1">
+            <p className="font-semibold text-blue-900">
+              📁 O arquivo é salvo na sua pasta <strong>Downloads</strong> (ou nos downloads do navegador/celular).
+            </p>
+            <p className="text-[10px] text-slate-500">
+              Para ver os eventos no seu calendário, abra o gerenciador de arquivos/downloads do seu celular e clique no arquivo <strong>financeiro-{monthKey}.ics</strong>. O app do Google Agenda abrirá perguntando onde adicionar todos os eventos de uma vez só!
+            </p>
+          </div>
         </div>
 
         {/* Lista de Vencimentos do Mês */}

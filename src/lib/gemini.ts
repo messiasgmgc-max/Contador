@@ -48,14 +48,21 @@ export async function loadGeminiApiKeyFromCloud(): Promise<string> {
 /**
  * Salva a chave do Gemini no Supabase para sincronizar entre todos os aparelhos
  */
-export async function saveGeminiApiKeyToCloud(key: string): Promise<void> {
+export async function saveGeminiApiKeyToCloud(key: string): Promise<{ success: boolean; error?: string }> {
   setStoredGeminiApiKey(key);
   try {
-    await supabase
+    const { error } = await supabase
       .from('finance_settings')
       .upsert({ key: 'gemini_api_key', value: key.trim() }, { onConflict: 'key' });
-  } catch (err) {
-    console.warn('Não foi possível salvar a chave no finance_settings do Supabase:', err);
+
+    if (error) {
+      console.warn('Erro do Supabase ao salvar chave no finance_settings:', error);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    console.warn('Exceção ao salvar chave no finance_settings do Supabase:', err);
+    return { success: false, error: err?.message || 'Falha de conexão com o banco' };
   }
 }
 
