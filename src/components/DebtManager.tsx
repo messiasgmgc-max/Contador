@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 import type {
   DebtItem, UserProfile, NewDebt, EditDebt, DebtStatus, WeekNumber, CycleWeek, MonthKey,
 } from '../types/finance';
-import { RecurrenceSelector } from './RecurrenceSelector';
 import { inputCls, cancelCls, Field, Tag } from './ui';
 import { formatBRL, formatBR, cycleWeekOf, currentMonthKey, todayISO } from '../lib/period';
 import { openGoogleCalendar } from '../lib/calendar';
-import { Plus, Trash2, CreditCard, User, Repeat, Check, CircleCheck, Pencil, X, Calendar } from 'lucide-react';
+import { Plus, Trash2, CreditCard, User, Repeat, Check, CircleCheck, Pencil, X, Calendar, Info } from 'lucide-react';
 
 interface Props {
   debts: DebtItem[];
@@ -34,9 +33,6 @@ export const DebtManager: React.FC<Props> = ({
   const [totalInstallments, setTotalInstallments] = useState('1');
   const [dueDate, setDueDate] = useState(defaultDate);
   const [userId, setUserId] = useState(defaultUserId ?? users[0]?.id ?? '');
-  const [recurring, setRecurring] = useState(false);
-  const [weeks, setWeeks] = useState<CycleWeek[]>([1]);
-  const [months, setMonths] = useState(1);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [status, setStatus] = useState<DebtStatus>('Pendente');
@@ -59,7 +55,6 @@ export const DebtManager: React.FC<Props> = ({
     setCurrentInstallment('1');
     setTotalInstallments('1');
     setStatus('Pendente');
-    setRecurring(false);
     setDueDate(defaultDate);
   };
 
@@ -79,7 +74,6 @@ export const DebtManager: React.FC<Props> = ({
     setDueDate(item.dueDate);
     setUserId(item.userId ?? '');
     setStatus(item.status);
-    setRecurring(false);
     setShowForm(true);
   };
 
@@ -87,18 +81,15 @@ export const DebtManager: React.FC<Props> = ({
   const total = visible.reduce((a, d) => a + d.installmentAmount, 0);
   const pago = visible.filter((d) => d.status === 'Pago').reduce((a, d) => a + d.installmentAmount, 0);
 
-  const toggleWeek = (w: CycleWeek) =>
-    setWeeks((prev) => (prev.includes(w) ? prev.filter((x) => x !== w) : [...prev, w].sort()));
-
   const parcelas = Math.max(1, parseInt(totalInstallments) || 1);
   const valorParcela = parseFloat(installmentAmount) || 0;
+  const atual = Math.min(Math.max(1, parseInt(currentInstallment) || 1), parcelas);
+  // Parcelas restantes a partir desta (inclui a atual)
+  const parcelasRestantes = parcelas - atual + 1;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!creditor.trim() || valorParcela <= 0) return;
-    if (recurring && weeks.length === 0) return;
-
-    const atual = Math.min(Math.max(1, parseInt(currentInstallment) || 1), parcelas);
 
     const base = {
       userId: userId || undefined,
@@ -117,10 +108,17 @@ export const DebtManager: React.FC<Props> = ({
       if (editingId) {
         await onUpdateDebt(editingId, { ...base, status });
       } else {
+        // Se tem mais de uma parcela restante, cria recorrência mensal automática
+        // semana calculada pela data de vencimento escolhida
+        const weekOfDue = cycleWeekOf(dueDate);
+        const recurrence = parcelasRestantes > 1
+          ? { weeks: [weekOfDue] as CycleWeek[], months: parcelasRestantes }
+          : undefined;
+
         await onAddDebt({
           ...base,
           status: 'Pendente',
-          recurrence: recurring ? { weeks, months } : undefined,
+          recurrence,
         });
       }
       fecharForm();
@@ -216,11 +214,9 @@ export const DebtManager: React.FC<Props> = ({
                 onChange={(e) => setDueDate(e.target.value)}
                 className={inputCls}
               />
-              {!recurring && (
-                <span className="text-[10px] text-slate-500 mt-1 block">
-                  cai na semana {cycleWeekOf(dueDate)}
-                </span>
-              )}
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                cai na semana {cycleWeekOf(dueDate)}
+              </span>
             </Field>
 
             <Field label="Parcela atual">
@@ -271,23 +267,21 @@ export const DebtManager: React.FC<Props> = ({
             </p>
           )}
 
-          {!editingId && (
-          <RecurrenceSelector
-            enabled={recurring}
-            onToggle={setRecurring}
-            weeks={weeks}
-            onToggleWeek={toggleWeek}
-            months={months}
-            onChangeMonths={setMonths}
-            accent="rose"
-          />
+          {!editingId && valorParcela > 0 && parcelasRestantes > 1 && (
+            <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+              <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
+              <span>
+                Serão criados <strong>{parcelasRestantes} lançamentos</strong> automaticamente:
+                parcela {atual} este mês e as próximas {parcelasRestantes - 1} nos meses seguintes, sempre na mesma semana.
+              </span>
+            </div>
           )}
 
           <div className="flex justify-end gap-2">
             <button type="button" onClick={fecharForm} className={cancelCls}>Cancelar</button>
             <button
               type="submit"
-              disabled={saving || (recurring && weeks.length === 0)}
+              disabled={saving}
               className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
             >
               {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Salvar'}

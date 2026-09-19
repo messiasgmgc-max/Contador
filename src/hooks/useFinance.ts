@@ -396,7 +396,7 @@ export function useFinance() {
     const dates = expandRecurrence(item.dueDate, item.recurrence);
     const seriesId = dates.length > 1 ? uuid() : null;
 
-    const rows = dates.map((due_date) => ({
+    const rows = dates.map((due_date, i) => ({
       user_id: item.userId ?? null,
       user_name: user?.name ?? item.userName ?? null,
       series_id: seriesId,
@@ -404,7 +404,8 @@ export function useFinance() {
       description: (item.description || 'Parcelamento').trim(),
       total_amount: item.totalAmount,
       installment_amount: item.installmentAmount,
-      current_installment: item.currentInstallment,
+      // Cada mês seguinte é a próxima parcela (currentInstallment + i)
+      current_installment: item.currentInstallment + i,
       total_installments: item.totalInstallments,
       due_date,
       status: item.status,
