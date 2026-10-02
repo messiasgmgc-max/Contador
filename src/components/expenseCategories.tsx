@@ -20,24 +20,24 @@ export const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
 
 export const CATEGORY_COLOR: Record<ExpenseCategory, string> = {
   Alimentacao: 'bg-orange-500',
-  Moradia: 'bg-blue-500',
-  Transporte: 'bg-amber-500',
-  Lazer: 'bg-purple-500',
-  Saude: 'bg-rose-500',
-  Servicos: 'bg-cyan-500',
-  Outros: 'bg-slate-400',
+  Moradia: 'bg-violet-500',
+  Transporte: 'bg-amber-400',
+  Lazer: 'bg-pink-500',
+  Saude: 'bg-emerald-400',
+  Servicos: 'bg-cyan-400',
+  Outros: 'bg-zinc-500',
 };
 
 export function categoryIcon(cat: ExpenseCategory): React.ReactNode {
   const cls = 'w-4 h-4';
   switch (cat) {
-    case 'Alimentacao': return <ShoppingBag className={`${cls} text-orange-600`} />;
-    case 'Moradia': return <Home className={`${cls} text-blue-600`} />;
-    case 'Transporte': return <Car className={`${cls} text-amber-600`} />;
-    case 'Lazer': return <Coffee className={`${cls} text-purple-600`} />;
-    case 'Saude': return <HeartPulse className={`${cls} text-rose-600`} />;
-    case 'Servicos': return <Zap className={`${cls} text-cyan-600`} />;
-    default: return <MoreHorizontal className={`${cls} text-slate-500`} />;
+    case 'Alimentacao': return <ShoppingBag className={`${cls} text-orange-400`} />;
+    case 'Moradia': return <Home className={`${cls} text-violet-400`} />;
+    case 'Transporte': return <Car className={`${cls} text-amber-400`} />;
+    case 'Lazer': return <Coffee className={`${cls} text-pink-400`} />;
+    case 'Saude': return <HeartPulse className={`${cls} text-emerald-400`} />;
+    case 'Servicos': return <Zap className={`${cls} text-cyan-400`} />;
+    default: return <MoreHorizontal className={`${cls} text-zinc-400`} />;
   }
 }
 

@@ -25,7 +25,6 @@ export const IncomeManager: React.FC<Props> = ({
   incomes, users, monthKey, defaultUserId, selectedWeek,
   onAddIncome, onUpdateIncome, onToggleReceived, onDeleteIncome,
 }) => {
-  // Dentro do mês corrente a data padrão é hoje; em outro mês, o dia 1 dele.
   const defaultDate = monthKey === currentMonthKey() ? todayISO() : `${monthKey}-01`;
 
   const [showForm, setShowForm] = useState(false);
@@ -41,12 +40,9 @@ export const IncomeManager: React.FC<Props> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [recebido, setRecebido] = useState(false);
 
-  // Ao trocar de mês, a data do formulário acompanha. Sem isto o lançamento
-  // feito enquanto se olha outro mês nascia no mês de hoje e sumia da tela.
   const [formMonth, setFormMonth] = useState(monthKey);
   if (formMonth !== monthKey) {
     setFormMonth(monthKey);
-    // Editando, a data é a do lançamento; trocar o mês não pode atropelá-la.
     if (!editingId) setExpectedDate(defaultDate);
   }
 
@@ -112,7 +108,7 @@ export const IncomeManager: React.FC<Props> = ({
       } else {
         await onAddIncome({
           ...base,
-          received: false,
+          received: recebido,
           recurrence: recurring ? { weeks, months } : undefined,
         });
       }
@@ -123,49 +119,49 @@ export const IncomeManager: React.FC<Props> = ({
   };
 
   return (
-    <section className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 sm:p-6 space-y-5">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+    <section className="bg-[#14141b] rounded-3xl border border-white/5 shadow-2xl p-4 sm:p-6 space-y-5">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
         <div className="min-w-0">
-          <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-            <ArrowUpRight className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span>Recebimentos</span>
-            <span className="text-xs bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">
+          <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+            <ArrowUpRight className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>Recebimentos & Rendas</span>
+            <span className="text-xs bg-emerald-500/10 text-emerald-400 font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-500/20">
               {visible.length}
             </span>
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            A semana é calculada pela data — não precisa informar.
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Salários, comissões, vales e diárias calculados por data.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="text-xs bg-slate-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl flex sm:block justify-between items-center">
-            <span className="text-slate-500">Caiu / previsto:</span>
+          <div className="text-xs bg-white/[0.03] sm:bg-transparent p-2.5 sm:p-0 rounded-2xl flex sm:block justify-between items-center border border-white/5 sm:border-0">
+            <span className="text-zinc-500">Caiu / Total:</span>
             <span className="ml-2 sm:ml-0 sm:block font-bold">
-              <span className="text-emerald-600">{formatBRL(received)}</span>
-              <span className="text-slate-400"> / {formatBRL(total)}</span>
+              <span className="text-white font-mono">{formatBRL(received)}</span>
+              <span className="text-zinc-500 font-mono"> / {formatBRL(total)}</span>
             </span>
           </div>
 
           <button
             onClick={abrirNovo}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer shadow-xs"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold text-black bg-[#ccff00] hover:bg-[#b8e600] active:scale-95 cursor-pointer transition-all shadow-[0_0_15px_rgba(204,255,0,0.2)]"
           >
             <Plus className="w-4 h-4" />
-            <span>Adicionar</span>
+            <span>Novo Recebimento</span>
           </button>
         </div>
       </header>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 rounded-2xl bg-[#181822] border border-white/10 space-y-4">
           {editingId && (
             <div className="flex items-center justify-between gap-2 -mb-1">
-              <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
                 <Pencil className="w-3.5 h-3.5" /> Editando este recebimento
               </span>
               <button type="button" onClick={fecharForm} title="Cancelar edição"
-                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer">
+                className="p-1 rounded-lg text-zinc-400 hover:text-white cursor-pointer">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -175,7 +171,7 @@ export const IncomeManager: React.FC<Props> = ({
             <Field label="Descrição">
               <input
                 type="text" required autoFocus
-                placeholder="Salário, freela, comissão..."
+                placeholder="Salário quinzena, diária, bônus..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className={inputCls}
@@ -185,14 +181,14 @@ export const IncomeManager: React.FC<Props> = ({
             <Field label="Valor (R$)">
               <input
                 type="number" step="0.01" min="0" required
-                placeholder="1200,00"
+                placeholder="1.200,00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className={inputCls}
               />
             </Field>
 
-            <Field label={recurring ? 'Data do 1º lançamento' : 'Data prevista'}>
+            <Field label={recurring ? 'Data do 1º recebimento' : 'Data prevista'}>
               <input
                 type="date" required
                 value={expectedDate}
@@ -200,8 +196,8 @@ export const IncomeManager: React.FC<Props> = ({
                 className={inputCls}
               />
               {!recurring && (
-                <span className="text-[10px] text-slate-500 mt-1 block">
-                  cai na semana {cycleWeekOf(expectedDate)}
+                <span className="text-[10px] text-zinc-500 font-mono mt-1 block">
+                  Semana {cycleWeekOf(expectedDate)} calculada
                 </span>
               )}
             </Field>
@@ -213,7 +209,7 @@ export const IncomeManager: React.FC<Props> = ({
                 className={inputCls}
               >
                 {INCOME_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{INCOME_LABEL[c]}</option>
+                  <option key={c} value={c} className="bg-[#181822] text-white">{INCOME_LABEL[c]}</option>
                 ))}
               </select>
             </Field>
@@ -221,66 +217,64 @@ export const IncomeManager: React.FC<Props> = ({
             {users.length > 1 && (
               <Field label="De quem é">
                 <select value={userId} onChange={(e) => setUserId(e.target.value)} className={inputCls}>
-                  {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  {users.map((u) => <option key={u.id} value={u.id} className="bg-[#181822] text-white">{u.name}</option>)}
                 </select>
               </Field>
             )}
           </div>
 
-          {!editingId && (
-          <RecurrenceSelector
-            enabled={recurring}
-            onToggle={setRecurring}
-            weeks={weeks}
-            onToggleWeek={toggleWeek}
-            months={months}
-            onChangeMonths={setMonths}
-            accent="emerald"
-          />
-          )}
-
-          {editingId && (
-            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 cursor-pointer select-none">
               <input
                 type="checkbox" checked={recebido}
                 onChange={(e) => setRecebido(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300"
+                className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-[#ccff00] focus:ring-[#ccff00]"
               />
               Já caiu na conta
             </label>
+          </div>
+
+          {!editingId && (
+            <RecurrenceSelector
+              enabled={recurring}
+              onToggle={setRecurring}
+              weeks={weeks}
+              onToggleWeek={toggleWeek}
+              months={months}
+              onChangeMonths={setMonths}
+              accent="emerald"
+            />
           )}
 
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={fecharForm} className={cancelCls}>
-              Cancelar
-            </button>
+          <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
+            <button type="button" onClick={fecharForm} className={cancelCls}>Cancelar</button>
             <button
               type="submit"
               disabled={saving || (recurring && weeks.length === 0)}
-              className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+              className="px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold text-black bg-[#ccff00] hover:bg-[#b8e600] disabled:opacity-50 cursor-pointer transition-all"
             >
-              {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Salvar'}
+              {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Confirmar Recebimento'}
             </button>
           </div>
         </form>
       )}
 
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-white/5">
         {visible.map((item) => (
           <div
             key={item.id}
-            className={`flex flex-col sm:flex-row sm:items-center justify-between py-3 px-2 rounded-xl gap-2 ${
-              item.received ? 'bg-slate-50/60' : 'hover:bg-slate-50'
+            className={`flex flex-col sm:flex-row sm:items-center justify-between py-3 px-3 rounded-2xl gap-2 transition-all ${
+              item.received ? 'bg-white/[0.01]' : 'hover:bg-white/[0.03]'
             }`}
           >
             <div className="flex items-start sm:items-center gap-3 min-w-0">
               <button
                 onClick={() => onToggleReceived(item.id)}
                 title={item.received ? 'Marcar como não recebido' : 'Marcar como recebido'}
-                className={`w-7 h-7 shrink-0 rounded-full border flex items-center justify-center cursor-pointer ${
+                className={`w-7 h-7 shrink-0 rounded-full border flex items-center justify-center cursor-pointer transition-all ${
                   item.received
-                    ? 'bg-emerald-600 border-emerald-600 text-white'
-                    : 'border-slate-300 hover:border-emerald-500 text-transparent'
+                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-xs'
+                    : 'border-white/20 hover:border-emerald-400 text-transparent'
                 }`}
               >
                 <Check className="w-4 h-4" />
@@ -288,55 +282,58 @@ export const IncomeManager: React.FC<Props> = ({
 
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className={`text-sm font-semibold ${item.received ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                  <span className="text-sm font-bold text-white">
                     {item.description}
                   </span>
                   {item.userName && users.length > 1 && (
-                    <Tag cls="bg-blue-50 text-blue-700 border-blue-200">
+                    <Tag cls="bg-white/5 text-zinc-300 border-white/10">
                       <User className="w-3 h-3" />{item.userName}
                     </Tag>
                   )}
-                  <Tag cls="bg-slate-100 text-slate-600 border-slate-200">Sem. {item.week}</Tag>
+                  <Tag cls="bg-[#ccff00]/10 text-[#ccff00] border-[#ccff00]/20 font-mono">Sem. {item.week}</Tag>
                   {item.seriesId && (
-                    <Tag cls="bg-indigo-50 text-indigo-700 border-indigo-200">
-                      <Repeat className="w-3 h-3" />recorrente
+                    <Tag cls="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                      <Repeat className="w-3 h-3" />Recorrente
                     </Tag>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
-                  <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
-                  <span>{formatBR(item.expectedDate)}</span>
-                  <span>· {INCOME_LABEL[item.category]}</span>
+                <div className="text-[11px] text-zinc-500 mt-0.5">
+                  Previsão {formatBR(item.expectedDate)} · {INCOME_LABEL[item.category] ?? item.category}
+                  {item.received ? (
+                    <span className="text-emerald-400 font-semibold"> · em conta</span>
+                  ) : (
+                    <span className="text-amber-400 font-semibold"> · a receber</span>
+                  )}
                 </div>
               </div>
             </div>
 
             <div className="flex items-center justify-between sm:justify-end gap-3 pl-10 sm:pl-0">
-              <span className="text-sm sm:text-base font-bold text-emerald-600 whitespace-nowrap">
+              <span className="text-sm sm:text-base font-black text-emerald-400 font-mono whitespace-nowrap">
                 + {formatBRL(item.amount)}
               </span>
               <button
                 onClick={() => openGoogleCalendar({
                   title: `Recebimento: ${item.description} (${formatBRL(item.amount)})`,
-                  description: `Previsão de recebimento no Fluxo Financeiro.\nDescrição: ${item.description}\nCategoria: ${INCOME_LABEL[item.category]}\nValor: ${formatBRL(item.amount)}`,
+                  description: `Entrada prevista no Fluxo Financeiro.\nDescrição: ${item.description}\nCategoria: ${INCOME_LABEL[item.category] ?? item.category}\nValor: ${formatBRL(item.amount)}\nSituação: ${item.received ? 'Recebido' : 'Pendente'}`,
                   startDate: item.expectedDate,
                 })}
                 title="Adicionar à Google Agenda"
-                className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
               >
                 <Calendar className="w-4 h-4" />
               </button>
               <button
                 onClick={() => abrirEdicao(item)}
-                title="Editar valor, data, categoria..."
-                className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                title="Editar"
+                className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
               >
                 <Pencil className="w-4 h-4" />
               </button>
               <button
                 onClick={() => onDeleteIncome(item.id)}
                 title="Excluir"
-                className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                className="p-2 rounded-xl text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -345,8 +342,8 @@ export const IncomeManager: React.FC<Props> = ({
         ))}
 
         {visible.length === 0 && (
-          <p className="text-sm text-slate-400 text-center py-8">
-            Nenhum recebimento neste período.
+          <p className="text-sm text-zinc-500 text-center py-8 font-medium">
+            Nenhum recebimento registrado neste período.
           </p>
         )}
       </div>

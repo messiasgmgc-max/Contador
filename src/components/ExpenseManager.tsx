@@ -41,12 +41,9 @@ export const ExpenseManager: React.FC<Props> = ({
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Ao trocar de mês, a data do formulário acompanha. Sem isto o lançamento
-  // feito enquanto se olha outro mês nascia no mês de hoje e sumia da tela.
   const [formMonth, setFormMonth] = useState(monthKey);
   if (formMonth !== monthKey) {
     setFormMonth(monthKey);
-    // Editando, a data é a do lançamento; trocar o mês não pode atropelá-la.
     if (!editingId) setDate(defaultDate);
   }
 
@@ -94,7 +91,6 @@ export const ExpenseManager: React.FC<Props> = ({
   const total = visible.reduce((a, e) => a + e.amount, 0);
   const paid = visible.filter((e) => e.paid).reduce((a, e) => a + e.amount, 0);
 
-  // Categorias que realmente aparecem no mês, para não mostrar chip vazio
   const presentCategories = EXPENSE_CATEGORIES.filter((c) => expenses.some((e) => e.category === c));
   const hasFilter = filterCategory !== 'TODAS' || onlyUnpaid;
 
@@ -124,7 +120,6 @@ export const ExpenseManager: React.FC<Props> = ({
       } else {
         await onAddExpense({
           ...base,
-          // Gasto do dia a dia normalmente já saiu do bolso; conta futura, não.
           paid: recurring ? false : paidNow,
           recurrence: recurring ? { weeks, months } : undefined,
         });
@@ -136,49 +131,49 @@ export const ExpenseManager: React.FC<Props> = ({
   };
 
   return (
-    <section className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 sm:p-6 space-y-5">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+    <section className="bg-[#14141b] rounded-3xl border border-white/5 shadow-2xl p-4 sm:p-6 space-y-5">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
         <div className="min-w-0">
-          <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-rose-600 shrink-0" />
-            <span>Gastos</span>
-            <span className="text-xs bg-rose-50 text-rose-700 font-semibold px-2 py-0.5 rounded-full border border-rose-200">
+          <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-rose-400 shrink-0" />
+            <span>Controle de Gastos</span>
+            <span className="text-xs bg-rose-500/10 text-rose-400 font-mono font-bold px-2 py-0.5 rounded-full border border-rose-500/20">
               {visible.length}
             </span>
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Contas fixas e gasto do dia a dia. A semana sai da data.
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Despesas fixas e do dia a dia vinculadas por data e semana.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="text-xs bg-slate-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl flex sm:block justify-between items-center">
-            <span className="text-slate-500">Pago / total:</span>
+          <div className="text-xs bg-white/[0.03] sm:bg-transparent p-2.5 sm:p-0 rounded-2xl flex sm:block justify-between items-center border border-white/5 sm:border-0">
+            <span className="text-zinc-500">Pago / Total:</span>
             <span className="ml-2 sm:ml-0 sm:block font-bold">
-              <span className="text-slate-900">{formatBRL(paid)}</span>
-              <span className="text-slate-400"> / {formatBRL(total)}</span>
+              <span className="text-white font-mono">{formatBRL(paid)}</span>
+              <span className="text-zinc-500 font-mono"> / {formatBRL(total)}</span>
             </span>
           </div>
 
           <button
             onClick={abrirNovo}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 cursor-pointer shadow-xs"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold text-black bg-[#ccff00] hover:bg-[#b8e600] active:scale-95 cursor-pointer transition-all shadow-[0_0_15px_rgba(204,255,0,0.2)]"
           >
             <Plus className="w-4 h-4" />
-            <span>Novo gasto</span>
+            <span>Novo Gasto</span>
           </button>
         </div>
       </header>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="p-4 rounded-2xl bg-rose-50/40 border border-rose-200 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 rounded-2xl bg-[#181822] border border-white/10 space-y-4">
           {editingId && (
             <div className="flex items-center justify-between gap-2 -mb-1">
-              <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                <Pencil className="w-3.5 h-3.5" /> Editando este gasto
+              <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                <Pencil className="w-3.5 h-3.5" /> Editando este lançamento
               </span>
               <button type="button" onClick={fecharForm} title="Cancelar edição"
-                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer">
+                className="p-1 rounded-lg text-zinc-400 hover:text-white cursor-pointer">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -188,7 +183,7 @@ export const ExpenseManager: React.FC<Props> = ({
             <Field label="Descrição">
               <input
                 type="text" required autoFocus
-                placeholder="Mercado, gasolina, conta de luz..."
+                placeholder="Mercado, combustível, luz..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className={inputCls}
@@ -213,8 +208,8 @@ export const ExpenseManager: React.FC<Props> = ({
                 className={inputCls}
               />
               {!recurring && (
-                <span className="text-[10px] text-slate-500 mt-1 block">
-                  cai na semana {cycleWeekOf(date)}
+                <span className="text-[10px] text-zinc-500 font-mono mt-1 block">
+                  Semana {cycleWeekOf(date)} calculada
                 </span>
               )}
             </Field>
@@ -226,7 +221,7 @@ export const ExpenseManager: React.FC<Props> = ({
                 className={inputCls}
               >
                 {EXPENSE_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
+                  <option key={c} value={c} className="bg-[#181822] text-white">{CATEGORY_LABEL[c]}</option>
                 ))}
               </select>
             </Field>
@@ -234,28 +229,28 @@ export const ExpenseManager: React.FC<Props> = ({
             {users.length > 1 && (
               <Field label="De quem é">
                 <select value={userId} onChange={(e) => setUserId(e.target.value)} className={inputCls}>
-                  {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  {users.map((u) => <option key={u.id} value={u.id} className="bg-[#181822] text-white">{u.name}</option>)}
                 </select>
               </Field>
             )}
           </div>
 
           <div className="flex flex-wrap items-center gap-4">
-            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 cursor-pointer select-none">
               <input
                 type="checkbox" checked={isFixed}
                 onChange={(e) => setIsFixed(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300"
+                className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-[#ccff00] focus:ring-[#ccff00]"
               />
-              Conta fixa
+              Conta fixa mensal
             </label>
 
             {(!recurring || editingId) && (
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 cursor-pointer select-none">
                 <input
                   type="checkbox" checked={paidNow}
                   onChange={(e) => setPaidNow(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300"
+                  className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-[#ccff00] focus:ring-[#ccff00]"
                 />
                 Já foi pago
               </label>
@@ -263,25 +258,25 @@ export const ExpenseManager: React.FC<Props> = ({
           </div>
 
           {!editingId && (
-          <RecurrenceSelector
-            enabled={recurring}
-            onToggle={setRecurring}
-            weeks={weeks}
-            onToggleWeek={toggleWeek}
-            months={months}
-            onChangeMonths={setMonths}
-            accent="rose"
-          />
+            <RecurrenceSelector
+              enabled={recurring}
+              onToggle={setRecurring}
+              weeks={weeks}
+              onToggleWeek={toggleWeek}
+              months={months}
+              onChangeMonths={setMonths}
+              accent="rose"
+            />
           )}
 
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
             <button type="button" onClick={fecharForm} className={cancelCls}>Cancelar</button>
             <button
               type="submit"
               disabled={saving || (recurring && weeks.length === 0)}
-              className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+              className="px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold text-black bg-[#ccff00] hover:bg-[#b8e600] disabled:opacity-50 cursor-pointer transition-all"
             >
-              {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Salvar'}
+              {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Confirmar Gasto'}
             </button>
           </div>
         </form>
@@ -290,7 +285,7 @@ export const ExpenseManager: React.FC<Props> = ({
       {/* Filtro por categoria */}
       {expenses.length > 0 && (
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-          <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <Filter className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
           <Chip active={filterCategory === 'TODAS'} onClick={() => setFilterCategory('TODAS')}>
             Todas
           </Chip>
@@ -299,73 +294,73 @@ export const ExpenseManager: React.FC<Props> = ({
               {CATEGORY_LABEL[c]}
             </Chip>
           ))}
-          <span className="w-px h-5 bg-slate-200 shrink-0 mx-0.5" />
+          <span className="w-px h-5 bg-white/10 shrink-0 mx-0.5" />
           <Chip active={onlyUnpaid} onClick={() => setOnlyUnpaid((v) => !v)}>
             Só não pagos
           </Chip>
           {hasFilter && (
             <button
               onClick={() => { setFilterCategory('TODAS'); setOnlyUnpaid(false); }}
-              className="text-[11px] text-slate-500 hover:text-rose-600 flex items-center gap-1 shrink-0 cursor-pointer px-1"
+              className="text-[11px] text-zinc-500 hover:text-white flex items-center gap-1 shrink-0 cursor-pointer px-1"
             >
-              <X className="w-3 h-3" /> limpar
+              <X className="w-3 h-3" /> Limpar
             </button>
           )}
         </div>
       )}
 
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-white/5">
         {visible.map((item) => (
           <div
             key={item.id}
-            className={`flex flex-col sm:flex-row sm:items-center justify-between py-3 px-2 rounded-xl gap-2 ${
-              item.paid ? 'bg-slate-50/60' : 'hover:bg-slate-50'
+            className={`flex flex-col sm:flex-row sm:items-center justify-between py-3 px-3 rounded-2xl gap-2 transition-all ${
+              item.paid ? 'bg-white/[0.01] opacity-75' : 'hover:bg-white/[0.03]'
             }`}
           >
             <div className="flex items-start sm:items-center gap-3 min-w-0">
               <button
                 onClick={() => onTogglePaid(item.id)}
                 title={item.paid ? 'Marcar como não pago' : 'Marcar como pago'}
-                className={`w-7 h-7 shrink-0 rounded-full border flex items-center justify-center cursor-pointer ${
+                className={`w-7 h-7 shrink-0 rounded-full border flex items-center justify-center cursor-pointer transition-all ${
                   item.paid
-                    ? 'bg-slate-700 border-slate-700 text-white'
-                    : 'border-slate-300 hover:border-rose-500 text-transparent'
+                    ? 'bg-rose-500 border-rose-500 text-white shadow-xs'
+                    : 'border-white/20 hover:border-rose-400 text-transparent'
                 }`}
               >
                 <Check className="w-4 h-4" />
               </button>
 
-              <span className="shrink-0">{categoryIcon(item.category)}</span>
+              <span className="shrink-0 p-2 rounded-xl bg-white/5">{categoryIcon(item.category)}</span>
 
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className={`text-sm font-semibold ${item.paid ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                  <span className={`text-sm font-bold ${item.paid ? 'text-zinc-500 line-through' : 'text-white'}`}>
                     {item.description}
                   </span>
                   {item.userName && users.length > 1 && (
-                    <Tag cls="bg-blue-50 text-blue-700 border-blue-200">
+                    <Tag cls="bg-white/5 text-zinc-300 border-white/10">
                       <User className="w-3 h-3" />{item.userName}
                     </Tag>
                   )}
-                  <Tag cls="bg-slate-100 text-slate-600 border-slate-200">Sem. {item.week}</Tag>
+                  <Tag cls="bg-[#ccff00]/10 text-[#ccff00] border-[#ccff00]/20 font-mono">Sem. {item.week}</Tag>
                   {item.isFixed && (
-                    <Tag cls="bg-cyan-50 text-cyan-700 border-cyan-200">fixa</Tag>
+                    <Tag cls="bg-cyan-500/10 text-cyan-400 border-cyan-500/20">Fixa</Tag>
                   )}
                   {item.seriesId && (
-                    <Tag cls="bg-indigo-50 text-indigo-700 border-indigo-200">
-                      <Repeat className="w-3 h-3" />recorrente
+                    <Tag cls="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                      <Repeat className="w-3 h-3" />Recorrente
                     </Tag>
                   )}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
+                <div className="text-[11px] text-zinc-500 mt-0.5">
                   {formatBR(item.date)} · {CATEGORY_LABEL[item.category]}
-                  {!item.paid && <span className="text-amber-600 font-semibold"> · a pagar</span>}
+                  {!item.paid && <span className="text-amber-400 font-semibold"> · a pagar</span>}
                 </div>
               </div>
             </div>
 
             <div className="flex items-center justify-between sm:justify-end gap-3 pl-10 sm:pl-0">
-              <span className="text-sm sm:text-base font-bold text-rose-600 whitespace-nowrap">
+              <span className="text-sm sm:text-base font-black text-rose-400 font-mono whitespace-nowrap">
                 − {formatBRL(item.amount)}
               </span>
               <button
@@ -375,21 +370,21 @@ export const ExpenseManager: React.FC<Props> = ({
                   startDate: item.date,
                 })}
                 title="Adicionar à Google Agenda"
-                className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
               >
                 <Calendar className="w-4 h-4" />
               </button>
               <button
                 onClick={() => abrirEdicao(item)}
                 title="Editar valor, data, categoria..."
-                className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
               >
                 <Pencil className="w-4 h-4" />
               </button>
               <button
                 onClick={() => onDeleteExpense(item.id)}
                 title="Excluir"
-                className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                className="p-2 rounded-xl text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -398,10 +393,10 @@ export const ExpenseManager: React.FC<Props> = ({
         ))}
 
         {visible.length === 0 && (
-          <p className="text-sm text-slate-400 text-center py-8">
+          <p className="text-sm text-zinc-500 text-center py-8 font-medium">
             {expenses.length === 0
-              ? 'Nenhum gasto neste mês.'
-              : 'Nenhum gasto com esses filtros.'}
+              ? 'Nenhum gasto registrado neste mês.'
+              : 'Nenhum gasto encontrado com esses filtros.'}
           </p>
         )}
       </div>
@@ -414,10 +409,10 @@ const Chip: React.FC<{ active: boolean; onClick: () => void; children: React.Rea
 }) => (
   <button
     onClick={onClick}
-    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+    className={`px-3 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
       active
-        ? 'bg-rose-600 border-rose-600 text-white'
-        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+        ? 'bg-[#ccff00] border-[#ccff00] text-black shadow-xs'
+        : 'bg-[#181822] border-white/5 text-zinc-400 hover:text-white hover:border-white/10'
     }`}
   >
     {children}

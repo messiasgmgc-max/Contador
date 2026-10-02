@@ -13,7 +13,7 @@ import { inputCls, cancelCls, Field } from './components/ui';
 import { monthLabel } from './lib/period';
 import type { WeekNumber, UserProfile } from './types/finance';
 import {
-  Wallet, ArrowUpRight, CreditCard, ShoppingBag, Layers,
+  ArrowUpRight, CreditCard, ShoppingBag, Layers,
   RefreshCw, LogOut, Edit3, TriangleAlert, Calendar, Sparkles, Download, ArrowDownCircle
 } from 'lucide-react';
 import { GeminiAssistantModal } from './components/GeminiAssistantModal';
@@ -128,14 +128,10 @@ function App() {
     }
   };
 
-  // Mantém o filtro de usuário e a cópia local do perfil em dia
   useEffect(() => {
     if (!currentUser) return;
     setActiveUserId(currentUser.id);
 
-    // Perfil excluído (por aqui ou por outro aparelho): a sessão salva no
-    // localStorage apontava para um id que não existe mais e a tela ficava
-    // presa num perfil fantasma, sem lançamento nenhum.
     if (!isLoading && users.length > 0 && !users.some((u) => u.id === currentUser.id)) {
       setCurrentUser(null);
       setActiveUserId('ALL');
@@ -152,7 +148,6 @@ function App() {
 
   const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
 
-  // Checa se há atualização recente no GitHub
   const checkUpdate = async () => {
     const info = await checkForAppUpdates();
     if (info && info.hasUpdate) {
@@ -165,12 +160,10 @@ function App() {
     setActiveUserId(user.id);
     localStorage.setItem('finance_session_user', JSON.stringify(user));
     if (typedPassword) void upgradePasswordIfLegacy(user, typedPassword);
-    // Ao logar, verifica se há commit mais recente
     void checkUpdate();
   };
 
   useEffect(() => {
-    // Se o usuário já estava logado pela sessão, verifica na abertura
     if (currentUser) {
       void checkUpdate();
     }
@@ -217,32 +210,42 @@ function App() {
     selectedWeek,
   };
 
-  const tabs: { id: Tab; label: string; count?: number; icon: ReactNode; color: string }[] = [
-    { id: 'geral', label: 'Visão geral', icon: <Layers className="w-3.5 h-3.5" />, color: 'bg-blue-600' },
-    { id: 'receitas', label: 'Recebimentos', count: incomes.length, icon: <ArrowUpRight className="w-3.5 h-3.5" />, color: 'bg-emerald-600' },
-    { id: 'dividas', label: 'Dívidas', count: debts.length, icon: <CreditCard className="w-3.5 h-3.5" />, color: 'bg-amber-600' },
-    { id: 'gastos', label: 'Gastos', count: expenses.length, icon: <ShoppingBag className="w-3.5 h-3.5" />, color: 'bg-rose-600' },
+  const tabs: { id: Tab; label: string; count?: number; icon: ReactNode }[] = [
+    { id: 'geral', label: 'Visão Geral', icon: <Layers className="w-3.5 h-3.5" /> },
+    { id: 'receitas', label: 'Receitas', count: incomes.length, icon: <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" /> },
+    { id: 'dividas', label: 'Dívidas', count: debts.length, icon: <CreditCard className="w-3.5 h-3.5 text-amber-400" /> },
+    { id: 'gastos', label: 'Gastos', count: expenses.length, icon: <ShoppingBag className="w-3.5 h-3.5 text-rose-400" /> },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-['Inter',-apple-system,BlinkMacSystemFont,sans-serif] selection:bg-blue-600 selection:text-white pb-24 sm:pb-8">
+    <div className="min-h-screen bg-[#0b0b0f] text-slate-100 font-['Inter',-apple-system,BlinkMacSystemFont,sans-serif] selection:bg-[#ccff00] selection:text-black pb-28 sm:pb-12">
 
-      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200">
+      {/* Top Header Estilo Pierre */}
+      <header className="sticky top-0 z-40 w-full bg-[#0b0b0f]/80 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0">
-              <Wallet className="w-5 h-5 sm:w-6 sm:h-6" />
+          
+          {/* Logo & Usuário */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-[#161622] to-black border border-white/10 flex items-center justify-center shrink-0 shadow-lg">
+              <span className="text-base sm:text-lg font-black italic tracking-widest text-[#ccff00]">
+                P
+              </span>
             </div>
             <div className="min-w-0">
-              <span className="text-base sm:text-xl font-extrabold tracking-tight block truncate">
-                Fluxo <span className="text-blue-600">Financeiro</span>
-              </span>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                <strong className="text-slate-900 font-bold truncate">{currentUser.name}</strong>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm sm:text-lg font-black tracking-tight block truncate text-white">
+                  Pierre <span className="text-[#ccff00] font-light">Pro</span>
+                </span>
+                <span className="hidden sm:inline-block text-[9px] font-black uppercase tracking-wider bg-[#ccff00]/15 text-[#ccff00] border border-[#ccff00]/30 px-2 py-0.2 rounded-full">
+                  Agêntico
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                <strong className="text-white font-medium truncate">{currentUser.name}</strong>
                 <button
                   onClick={() => { setEditName(currentUser.name); setShowEdit(true); }}
                   title="Editar conta"
-                  className="p-0.5 rounded text-slate-400 hover:text-blue-600 cursor-pointer shrink-0"
+                  className="p-0.5 rounded text-zinc-500 hover:text-white cursor-pointer shrink-0"
                 >
                   <Edit3 className="w-3 h-3" />
                 </button>
@@ -250,45 +253,47 @@ function App() {
             </div>
           </div>
 
+          {/* Quick Actions (Megamen AI, Sync, Logout) */}
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowGemini(true)}
-              title="Assistente Financeiro Gemini"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-xs cursor-pointer transition-all"
+              title="Assistente Megamen AI"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[#ccff00] hover:bg-[#b8e600] active:scale-95 text-black text-xs font-black shadow-[0_0_15px_rgba(204,255,0,0.25)] cursor-pointer transition-all"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span className="hidden sm:inline">IA Financeira</span>
+              <Sparkles className="w-3.5 h-3.5 text-black fill-black" />
+              <span className="hidden sm:inline">Megamen AI</span>
             </button>
 
             <button
               onClick={() => void reloadFromSupabase()}
               title={isSupabaseConnected ? 'Sincronizar' : 'Sem conexão — tentar de novo'}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs cursor-pointer hover:bg-slate-200"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-white/5 border border-white/10 text-xs cursor-pointer hover:bg-white/10 text-zinc-300"
             >
-              <span className={`w-2 h-2 rounded-full ${isSupabaseConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-              <span className="text-slate-700 font-semibold hidden md:inline">
-                {isSyncing ? 'Atualizando...' : isSupabaseConnected ? 'Online' : 'Sem conexão'}
+              <span className={`w-2 h-2 rounded-full ${isSupabaseConnected ? 'bg-[#ccff00] shadow-[0_0_8px_#ccff00]' : 'bg-rose-500'}`} />
+              <span className="font-semibold hidden md:inline">
+                {isSyncing ? 'Atualizando...' : isSupabaseConnected ? 'Online' : 'Offline'}
               </span>
-              <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${isSyncing ? 'animate-spin text-blue-600' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-zinc-400 ${isSyncing ? 'animate-spin text-[#ccff00]' : ''}`} />
             </button>
 
             <button
               onClick={handleLogout}
               title="Trocar de conta"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-600 text-slate-600 text-xs font-semibold cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl border border-white/10 bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-zinc-400 text-xs font-semibold cursor-pointer transition-all"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Trocar</span>
+              <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
         </div>
       </header>
 
+      {/* Modal de Configuração do Perfil */}
       {showEdit && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-w-sm w-full space-y-4">
-            <h3 className="text-sm font-bold flex items-center gap-2">
-              <Edit3 className="w-4 h-4 text-blue-600" /> Configurações da conta
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#14141b] rounded-3xl border border-white/10 shadow-2xl p-6 max-w-sm w-full space-y-4">
+            <h3 className="text-sm font-bold flex items-center gap-2 text-white">
+              <Edit3 className="w-4 h-4 text-[#ccff00]" /> Configurações da Conta
             </h3>
 
             <form onSubmit={handleUpdateAccount} className="space-y-3">
@@ -308,19 +313,18 @@ function App() {
                   onChange={(e) => setEditPassword(e.target.value)}
                   className={inputCls}
                 />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Tranca local para separar os perfis neste aparelho. Não protege os
-                  dados no servidor — veja o README.
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Tranca local para separar os perfis no aparelho.
                 </p>
               </Field>
 
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
                 <button type="button" onClick={() => setShowEdit(false)} className={cancelCls}>
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                  className="px-4 py-2.5 rounded-2xl text-xs font-black text-black bg-[#ccff00] hover:bg-[#b8e600] cursor-pointer"
                 >
                   Salvar
                 </button>
@@ -330,36 +334,34 @@ function App() {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-8 space-y-6 sm:space-y-8">
+      {/* Conteúdo Principal */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 space-y-6 sm:space-y-8">
 
         {errorMessage && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3.5 flex items-start gap-2.5">
-            <TriangleAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-3.5 flex items-start gap-2.5">
+            <TriangleAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <p className="text-xs font-bold text-rose-800">Erro ao falar com o Supabase</p>
-              <p className="text-[11px] text-rose-700 break-words">{errorMessage}</p>
+              <p className="text-xs font-bold text-rose-300">Erro ao sincronizar com o Supabase</p>
+              <p className="text-[11px] text-rose-400 break-words">{errorMessage}</p>
             </div>
           </div>
         )}
 
         {availableUpdate && (
-          <div className="rounded-2xl border border-indigo-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="rounded-3xl border border-[#ccff00]/30 bg-gradient-to-r from-[#181824] to-[#121217] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl">
             <div className="flex items-start gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-9 h-9 rounded-2xl bg-[#ccff00] text-black font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-md">
                 <ArrowDownCircle className="w-5 h-5" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-indigo-950">Nova atualização disponível!</span>
-                  <span className="text-[10px] bg-indigo-200/60 text-indigo-800 font-mono px-1.5 py-0.5 rounded font-bold">
+                  <span className="text-xs font-bold text-white">Nova atualização disponível!</span>
+                  <span className="text-[10px] bg-[#ccff00]/20 text-[#ccff00] font-mono px-1.5 py-0.5 rounded font-bold">
                     {availableUpdate.latestCommitShort}
                   </span>
                 </div>
-                <p className="text-[11px] text-indigo-800 truncate mt-0.5">
+                <p className="text-[11px] text-zinc-400 truncate mt-0.5">
                   "{availableUpdate.commitMessage}"
-                </p>
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  Mudanças no código estrutural prontas para atualizar.
                 </p>
               </div>
             </div>
@@ -367,17 +369,14 @@ function App() {
             <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
               <button
                 onClick={() => setAvailableUpdate(null)}
-                className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer"
+                className="px-3 py-1.5 text-xs text-zinc-400 hover:text-white font-medium cursor-pointer"
               >
                 Depois
               </button>
 
               <button
-                onClick={() => {
-                  window.location.reload();
-                }}
-                title="Recarregar aplicação para puxar o código mais recente"
-                className="px-3 py-1.5 rounded-xl border border-indigo-300 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-bold cursor-pointer transition-all"
+                onClick={() => { window.location.reload(); }}
+                className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-xs font-bold cursor-pointer transition-all"
               >
                 Atualizar Código
               </button>
@@ -385,7 +384,7 @@ function App() {
               <a
                 href={availableUpdate.apkDownloadUrl}
                 download="FluxoFinanceiro.apk"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs cursor-pointer transition-all"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#ccff00] hover:bg-[#b8e600] text-black text-xs font-black shadow-xs cursor-pointer transition-all"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Baixar APK</span>
@@ -394,31 +393,37 @@ function App() {
           </div>
         )}
 
+        {/* Barra Superior de Mês & Agenda */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <MonthNavigator monthKey={monthKey} availableMonths={availableMonths} onChange={setMonthKey} />
           
           <button
             onClick={handleExportMonthToCalendar}
             title="Exportar todos os vencimentos e contas do mês para o Google Agenda (.ics)"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer shadow-xs self-start sm:self-auto"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border border-white/10 bg-[#16161e] hover:bg-white/10 text-zinc-300 text-xs font-bold cursor-pointer shadow-xs self-start sm:self-auto transition-all"
           >
-            <Calendar className="w-3.5 h-3.5 text-blue-600" />
-            <span>Sincronizar Mês na Agenda</span>
+            <Calendar className="w-4 h-4 text-[#ccff00]" />
+            <span>Sincronizar Agenda (.ics)</span>
           </button>
         </div>
 
         {isLoading ? (
-          <div className="py-20 text-center text-sm text-slate-400">Carregando seus dados...</div>
+          <div className="py-20 text-center text-sm text-zinc-500">
+            Carregando inteligência financeira...
+          </div>
         ) : (
           <>
-            <CashflowSummary summary={summary} />
+            {/* Saldo Real & Pierre Black Card */}
+            <CashflowSummary summary={summary} userName={currentUser.name} />
 
+            {/* Painel de Gastos com Donut Circular e Heatmap */}
             <SpendingPanel
               spending={spending}
               byCategory={expensesByCategory}
               monthLabelText={monthLabel(monthKey)}
             />
 
+            {/* Linha do Tempo e Semanas do Mês */}
             <CycleTimeline
               weeks={weeks}
               monthKey={monthKey}
@@ -426,16 +431,17 @@ function App() {
               onSelectWeek={toggleWeek}
             />
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
-              <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {/* Seletor de Abas Estilo Pierre Pill */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+              <div className="hidden sm:flex items-center gap-2 overflow-x-auto no-scrollbar">
                 {tabs.map((t) => (
                   <button
                     key={t.id}
                     onClick={() => setActiveTab(t.id)}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                       activeTab === t.id
-                        ? `${t.color} text-white`
-                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        ? 'bg-white text-black shadow-lg shadow-white/5'
+                        : 'bg-[#14141b] border border-white/5 text-zinc-400 hover:text-white hover:border-white/15'
                     }`}
                   >
                     {t.icon}
@@ -445,21 +451,22 @@ function App() {
               </div>
 
               <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-500">Filtro:</span>
-                <span className="font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">
-                  {selectedWeek === 'ALL' ? 'mês inteiro' : `semana ${selectedWeek}`}
+                <span className="text-zinc-500">Filtro ativo:</span>
+                <span className="font-bold text-[#ccff00] bg-[#ccff00]/10 border border-[#ccff00]/20 px-2.5 py-1 rounded-xl font-mono">
+                  {selectedWeek === 'ALL' ? 'Mês Inteiro' : `Semana ${selectedWeek}`}
                 </span>
                 {selectedWeek !== 'ALL' && (
                   <button
                     onClick={() => setSelectedWeek('ALL')}
-                    className="text-slate-500 hover:text-blue-600 underline cursor-pointer"
+                    className="text-zinc-500 hover:text-white underline cursor-pointer"
                   >
-                    limpar
+                    Limpar
                   </button>
                 )}
               </div>
             </div>
 
+            {/* Gerenciadores */}
             {(activeTab === 'geral' || activeTab === 'receitas') && (
               <IncomeManager
                 {...managerProps}
@@ -496,13 +503,14 @@ function App() {
         )}
       </main>
 
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex items-center justify-around">
+      {/* Floating Bottom Nav para Mobile (Estilo Pierre Island com Megamen) */}
+      <nav className="sm:hidden fixed bottom-4 left-4 right-4 z-50 bg-[#161620]/90 backdrop-blur-xl border border-white/10 rounded-3xl px-3 py-2 flex items-center justify-around shadow-2xl">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
-            className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-[11px] transition-colors ${
-              activeTab === t.id ? 'text-blue-600 font-bold' : 'text-slate-500 font-medium'
+            className={`flex flex-col items-center gap-1 py-1 px-2 rounded-2xl text-[10px] uppercase font-bold tracking-wider transition-all ${
+              activeTab === t.id ? 'text-[#ccff00] scale-105' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
             {t.icon}
@@ -511,13 +519,16 @@ function App() {
         ))}
         <button
           onClick={() => setShowGemini(true)}
-          className="flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-[11px] text-indigo-600 font-bold"
+          className="flex flex-col items-center gap-1 py-1 px-2 rounded-2xl text-[10px] uppercase font-black tracking-wider text-[#ccff00]"
         >
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          <span>IA</span>
+          <div className="w-5 h-5 rounded-full bg-[#ccff00] text-black flex items-center justify-center text-[10px] font-black">
+            🐱
+          </div>
+          <span>Megamen</span>
         </button>
       </nav>
 
+      {/* Modais */}
       {showGemini && (
         <GeminiAssistantModal
           isOpen={showGemini}

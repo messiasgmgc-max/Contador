@@ -11,28 +11,27 @@ interface Props {
 }
 
 export const CycleTimeline: React.FC<Props> = ({ weeks, monthKey, selectedWeek, onSelectWeek }) => {
-  // "Semana atual" só faz sentido quando você está olhando o mês corrente.
   const currentWeek = monthKey === currentMonthKey() ? cycleWeekOf(todayISO()) : null;
 
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 shrink-0" />
-            <span>Semanas do mês</span>
+          <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[#ccff00] shrink-0" />
+            <span>Semanas do Mês</span>
           </h2>
-          <p className="text-[11px] sm:text-xs text-slate-500">
-            A semana sai da data do lançamento. Toque para filtrar.
+          <p className="text-[11px] sm:text-xs text-zinc-500">
+            A semana é calculada automaticamente da data. Toque para filtrar.
           </p>
         </div>
 
         {selectedWeek !== 'ALL' && (
           <button
             onClick={() => onSelectWeek(selectedWeek)}
-            className="text-xs px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 font-semibold cursor-pointer shrink-0"
+            className="text-xs px-3 py-1.5 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white font-semibold cursor-pointer shrink-0 transition-all"
           >
-            Ver todas
+            Ver todas as semanas
           </button>
         )}
       </div>
@@ -48,38 +47,43 @@ export const CycleTimeline: React.FC<Props> = ({ weeks, monthKey, selectedWeek, 
             <button
               key={w.week}
               onClick={() => onSelectWeek(w.week)}
-              className={`text-left rounded-2xl p-3 sm:p-4 border transition-all cursor-pointer ${
+              className={`text-left rounded-3xl p-3.5 sm:p-4.5 border transition-all cursor-pointer relative overflow-hidden ${
                 isSelected
-                  ? 'border-blue-600 bg-blue-50/40 ring-2 ring-blue-500/20'
-                  : 'bg-white border-slate-200 hover:border-blue-300'
-              } ${vazia ? 'opacity-60' : ''}`}
+                  ? 'border-[#ccff00] bg-[#1a1a24] shadow-[0_0_15px_rgba(204,255,0,0.12)] ring-1 ring-[#ccff00]'
+                  : 'bg-[#14141b] border-white/5 hover:border-white/15'
+              } ${vazia ? 'opacity-40 hover:opacity-80' : ''}`}
             >
-              <div className="flex items-center justify-between gap-1 mb-2">
+              {/* Glow sutil na semana atual */}
+              {isCurrent && (
+                <div className="absolute top-0 right-0 w-24 h-24 bg-[#ccff00]/10 rounded-full blur-xl pointer-events-none" />
+              )}
+
+              <div className="flex items-center justify-between gap-1 mb-2.5">
                 <div className="min-w-0">
-                  <span className="text-sm font-bold text-slate-900">Semana {w.week}</span>
-                  <span className="block text-[10px] text-slate-400">dias {w.range}</span>
+                  <span className="text-sm font-extrabold text-white">Semana {w.week}</span>
+                  <span className="block text-[10px] text-zinc-500 font-mono">dias {w.range}</span>
                 </div>
                 {isCurrent && (
-                  <span className="text-[9px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded-full shrink-0">
-                    atual
+                  <span className="text-[9px] bg-[#ccff00] text-black font-black px-2 py-0.5 rounded-full shrink-0 tracking-wider uppercase">
+                    Atual
                   </span>
                 )}
               </div>
 
               <div className="space-y-1.5">
                 <Row
-                  icon={<ArrowUpCircle className="w-3 h-3 text-emerald-600 shrink-0" />}
+                  icon={<ArrowUpCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
                   value={formatBRL(w.incomePlanned)}
-                  cls="text-slate-900"
+                  cls="text-zinc-200"
                 />
                 <Row
-                  icon={<ArrowDownCircle className="w-3 h-3 text-rose-600 shrink-0" />}
+                  icon={<ArrowDownCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />}
                   value={`− ${formatBRL(w.outgoing)}`}
-                  cls="text-rose-600"
+                  cls="text-rose-400"
                 />
-                <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1">
-                  <span className="text-[10px] font-semibold text-slate-500 shrink-0">Saldo</span>
-                  <span className={`text-xs font-extrabold truncate ${positivo ? 'text-emerald-600' : 'text-rose-600'}`}>
+                <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-1">
+                  <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider shrink-0">Saldo</span>
+                  <span className={`text-xs font-black truncate ${positivo ? 'text-[#ccff00]' : 'text-rose-400'}`}>
                     {formatBRL(w.balancePlanned)}
                   </span>
                 </div>
@@ -94,7 +98,9 @@ export const CycleTimeline: React.FC<Props> = ({ weeks, monthKey, selectedWeek, 
 
 const Row: React.FC<{ icon: React.ReactNode; value: string; cls: string }> = ({ icon, value, cls }) => (
   <div className="flex items-center justify-between gap-1 text-[11px]">
-    {icon}
-    <span className={`font-bold truncate ${cls}`}>{value}</span>
+    <div className="flex items-center gap-1">
+      {icon}
+    </div>
+    <span className={`font-mono font-bold truncate ${cls}`}>{value}</span>
   </div>
 );

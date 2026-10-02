@@ -9,7 +9,7 @@ import {
   type ExtractedTransaction
 } from '../lib/gemini';
 import { formatBRL } from '../lib/period';
-import { Bot, Send, Sparkles, Key, Check, X, Loader2 } from 'lucide-react';
+import { Send, Sparkles, Key, Check, X, Loader2 } from 'lucide-react';
 import { inputCls } from './ui';
 
 interface Message {
@@ -41,7 +41,7 @@ export const GeminiAssistantModal: React.FC<Props> = ({
     {
       id: 'welcome',
       sender: 'gemini',
-      text: `Olá, ${financialContext.currentUser.name}! Sou sua inteligência pessoal financeira. Como posso ajudar com seus lançamentos ou orçamento de ${financialContext.monthKey}?`,
+      text: `Olá, ${financialContext.currentUser.name}! Sou Megamen, seu agente e inteligência financeira pessoal. Como posso ajudar com seus lançamentos ou orçamento de ${financialContext.monthKey}?`,
     },
   ]);
 
@@ -78,23 +78,17 @@ export const GeminiAssistantModal: React.FC<Props> = ({
   };
 
   const handleDiagnose = async () => {
-    if (loading) return;
+    const prompt = 'Faça um diagnóstico rápido do meu fluxo financeiro deste mês: onde estão os maiores gastos, se o saldo está saudável e 2 recomendações práticas.';
+    setInput('');
+    setMessages((prev) => [...prev, { id: String(Date.now()), sender: 'user', text: prompt }]);
     setLoading(true);
-
-    const prompt = 'Faça um diagnóstico rápido e realista do meu mês atual. Aponte se estou no lucro ou prejuízo, quais são meus maiores pontos de atenção e uma dica prática de economia para esta semana.';
-    const userMsg: Message = { id: String(Date.now()), sender: 'user', text: '📊 Diagnosticar minha saúde financeira deste mês' };
-    setMessages((prev) => [...prev, userMsg]);
-
     try {
       const response = await askGemini(prompt, financialContext, apiKey);
-      setMessages((prev) => [
-        ...prev,
-        { id: String(Date.now() + 1), sender: 'gemini', text: response },
-      ]);
+      setMessages((prev) => [...prev, { id: String(Date.now() + 1), sender: 'gemini', text: response }]);
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
-        { id: String(Date.now() + 1), sender: 'gemini', text: `⚠️ ${err.message || 'Erro ao consultar Gemini.'}` },
+        { id: String(Date.now() + 1), sender: 'gemini', text: `⚠️ ${err.message || 'Erro ao conectar ao Gemini.'}` },
       ]);
     } finally {
       setLoading(false);
@@ -103,20 +97,29 @@ export const GeminiAssistantModal: React.FC<Props> = ({
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    const query = input.trim();
-    if (!query || loading) return;
+    if (!input.trim() || loading) return;
 
+    const query = input.trim();
     setInput('');
-    const userMsg: Message = { id: String(Date.now()), sender: 'user', text: query };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, { id: String(Date.now()), sender: 'user', text: query }]);
     setLoading(true);
 
     try {
-      // 1. Tentar detectar se o usuário está pedindo para cadastrar algo
-      const isRecordRequest = /(gastei|comprei|paguei|recebi|entrou|anota|registra|despesa|receita|divida)/i.test(query);
-      let parsedTx: ExtractedTransaction | null = null;
+      const lower = query.toLowerCase();
+      const isAction =
+        lower.includes('comprei') ||
+        lower.includes('gastei') ||
+        lower.includes('paguei') ||
+        lower.includes('recebi') ||
+        lower.includes('ganhei') ||
+        lower.includes('anotar') ||
+        lower.includes('adicionar') ||
+        lower.includes('lançar') ||
+        lower.includes('devo') ||
+        lower.includes('parcela');
 
-      if (isRecordRequest) {
+      let parsedTx: ExtractedTransaction | null = null;
+      if (isAction) {
         parsedTx = await parseTransactionWithGemini(query, financialContext, apiKey).catch(() => null);
       }
 
@@ -166,21 +169,23 @@ export const GeminiAssistantModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full flex flex-col h-[90vh] max-h-[700px] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-[#121217] rounded-3xl border border-white/10 shadow-2xl max-w-lg w-full flex flex-col h-[90vh] max-h-[720px] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Topo do Assistente */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white flex items-center justify-between shadow-md">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20">
-              <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
+        {/* Topo do Assistente com Megamen (Referência 4) */}
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-[#181824] via-[#121218] to-black border-b border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#ccff00] text-black font-black flex items-center justify-center text-sm shadow-[0_0_15px_rgba(204,255,0,0.3)]">
+              🐱
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <h3 className="text-base font-black tracking-tight">Gemini Financeiro</h3>
-                <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full">3.6 Flash</span>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-white tracking-tight">Megamen AI</h3>
+                <span className="text-[9px] font-black uppercase tracking-wider bg-[#ccff00]/15 text-[#ccff00] border border-[#ccff00]/30 px-2 py-0.2 rounded-full">
+                  Agêntico Ativo
+                </span>
               </div>
-              <p className="text-xs text-white/80">Inteligência Pessoal integrada ao seu caixa</p>
+              <p className="text-[11px] text-zinc-400">Escudo contra gastos e inteligência financeira</p>
             </div>
           </div>
 
@@ -188,14 +193,14 @@ export const GeminiAssistantModal: React.FC<Props> = ({
             <button
               onClick={() => setShowConfig(!showConfig)}
               title="Configurar Chave Gemini"
-              className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
             >
               <Key className="w-4 h-4" />
             </button>
             <button
               onClick={onClose}
               title="Fechar"
-              className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -204,9 +209,9 @@ export const GeminiAssistantModal: React.FC<Props> = ({
 
         {/* Painel de Configuração de Chave API */}
         {showConfig && (
-          <div className="p-4 bg-slate-50 border-b border-slate-200 animate-in slide-in-from-top-2 duration-150">
+          <div className="p-4 bg-[#181822] border-b border-white/5 animate-in slide-in-from-top-2 duration-150">
             <form onSubmit={handleSaveApiKey} className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700 block">
+              <label className="text-xs font-semibold text-zinc-300 block">
                 Chave de API do Google Gemini:
               </label>
               <div className="flex gap-2">
@@ -220,17 +225,17 @@ export const GeminiAssistantModal: React.FC<Props> = ({
                 <button
                   type="submit"
                   disabled={savingKey}
-                  className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 cursor-pointer shrink-0 disabled:opacity-50"
+                  className="px-4 py-2 rounded-2xl bg-[#ccff00] text-black font-black text-xs hover:bg-[#b8e600] cursor-pointer shrink-0 disabled:opacity-50"
                 >
-                  {savingKey ? 'Salvando...' : 'Salvar no Supabase'}
+                  {savingKey ? 'Salvando...' : 'Salvar'}
                 </button>
               </div>
-              <p className="text-[11px] text-slate-500">
-                Você pode obter uma chave gratuita no site <a href="https://aistudio.google.com" target="_blank" rel="noreferrer" className="text-blue-600 underline">aistudio.google.com</a>.
+              <p className="text-[11px] text-zinc-500">
+                Obtenha uma chave gratuita em <a href="https://aistudio.google.com" target="_blank" rel="noreferrer" className="text-[#ccff00] underline">aistudio.google.com</a>.
               </p>
               {saveStatus && (
                 <div className={`p-2 rounded-xl text-xs font-semibold ${
-                  saveStatus.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                  saveStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                 }`}>
                   {saveStatus.message}
                 </div>
@@ -240,20 +245,20 @@ export const GeminiAssistantModal: React.FC<Props> = ({
         )}
 
         {/* Botões Rápidos */}
-        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <div className="px-4 py-2.5 bg-black/40 border-b border-white/5 flex items-center gap-2 overflow-x-auto no-scrollbar">
           <button
             onClick={handleDiagnose}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-600 text-slate-700 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shadow-xs disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-[#ccff00]/40 text-zinc-300 hover:text-white text-xs font-semibold transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <Sparkles className="w-3.5 h-3.5 text-[#ccff00]" />
             <span>Diagnosticar meu mês</span>
           </button>
           <button
             onClick={() => setInput('Quanto ainda posso gastar esta semana sem ficar no vermelho?')}
-            className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-600 text-slate-700 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shadow-xs"
+            className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-[#ccff00]/40 text-zinc-300 hover:text-white text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
           >
-            Qual meu limite desta semana?
+            Limite desta semana
           </button>
         </div>
 
@@ -267,29 +272,29 @@ export const GeminiAssistantModal: React.FC<Props> = ({
                 className={`flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isUser && (
-                  <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                    <Bot className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-xl bg-[#ccff00] text-black font-black flex items-center justify-center shrink-0 mt-0.5 text-xs">
+                    🐱
                   </div>
                 )}
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 leading-relaxed shadow-xs ${
+                <div className={`max-w-[85%] rounded-3xl px-4 py-3 leading-relaxed shadow-lg ${
                   isUser
-                    ? 'bg-blue-600 text-white rounded-br-xs'
-                    : 'bg-slate-100 text-slate-800 rounded-bl-xs border border-slate-200/80 whitespace-pre-wrap'
+                    ? 'bg-[#ccff00] text-black font-medium rounded-br-xs'
+                    : 'bg-[#181822] text-zinc-200 rounded-bl-xs border border-white/5 whitespace-pre-wrap'
                 }`}>
                   <div>{m.text}</div>
 
                   {m.actionPreview && (
-                    <div className="mt-3 pt-3 border-t border-slate-200/80 flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-bold text-slate-600">
+                    <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-mono font-bold text-[#ccff00]">
                         {m.actionPreview.type.toUpperCase()}: {formatBRL(m.actionPreview.amount)}
                       </span>
                       <button
                         onClick={() => handleConfirmAction(m.actionPreview!, m.id)}
                         disabled={loading}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-black font-black text-xs shadow-xs cursor-pointer disabled:opacity-50"
                       >
                         <Check className="w-3.5 h-3.5" />
-                        <span>Confirmar Cadastro</span>
+                        <span>Confirmar</span>
                       </button>
                     </div>
                   )}
@@ -299,28 +304,28 @@ export const GeminiAssistantModal: React.FC<Props> = ({
           })}
 
           {loading && (
-            <div className="flex items-center gap-2 text-slate-400 text-xs py-1">
-              <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-              <span>Gemini pensando com seus dados...</span>
+            <div className="flex items-center gap-2 text-zinc-400 text-xs py-1">
+              <Loader2 className="w-4 h-4 animate-spin text-[#ccff00]" />
+              <span>Megamen pensando com seus dados...</span>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
         {/* Input de Envio */}
-        <form onSubmit={handleSend} className="p-3 sm:p-4 bg-white border-t border-slate-200 flex gap-2 items-center">
+        <form onSubmit={handleSend} className="p-3 sm:p-4 bg-[#14141b] border-t border-white/5 flex gap-2 items-center">
           <input
             type="text"
-            placeholder="Pergunte algo ou diga: 'Comprei 45 reais de comida hoje'..."
+            placeholder="Pergunte ao Megamen ou diga: 'Comprei 45 de lanche hoje'..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
-            className="flex-1 bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 focus:outline-none transition-all"
+            className="flex-1 bg-[#181822] border border-white/10 focus:border-[#ccff00] rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:outline-none transition-all"
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="w-10 h-10 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white flex items-center justify-center cursor-pointer shadow-md transition-all shrink-0"
+            className="w-10 h-10 rounded-2xl bg-[#ccff00] hover:bg-[#b8e600] disabled:opacity-40 text-black flex items-center justify-center cursor-pointer shadow-md transition-all shrink-0 font-bold"
           >
             <Send className="w-4 h-4" />
           </button>

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import type {
-  DebtItem, UserProfile, NewDebt, EditDebt, DebtStatus, WeekNumber, CycleWeek, MonthKey,
+  DebtItem, UserProfile, NewDebt, EditDebt, DebtStatus, WeekNumber, MonthKey,
 } from '../types/finance';
 import { inputCls, cancelCls, Field, Tag } from './ui';
 import { formatBRL, formatBR, cycleWeekOf, currentMonthKey, todayISO } from '../lib/period';
 import { openGoogleCalendar } from '../lib/calendar';
-import { Plus, Trash2, CreditCard, User, Repeat, Check, CircleCheck, Pencil, X, Calendar, Info } from 'lucide-react';
+import { Plus, Trash2, CreditCard, User, Check, Pencil, X, Calendar } from 'lucide-react';
 
 interface Props {
   debts: DebtItem[];
@@ -37,12 +37,9 @@ export const DebtManager: React.FC<Props> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [status, setStatus] = useState<DebtStatus>('Pendente');
 
-  // Ao trocar de mês, a data do formulário acompanha. Sem isto o lançamento
-  // feito enquanto se olha outro mês nascia no mês de hoje e sumia da tela.
   const [formMonth, setFormMonth] = useState(monthKey);
   if (formMonth !== monthKey) {
     setFormMonth(monthKey);
-    // Editando, a data é a do lançamento; trocar o mês não pode atropelá-la.
     if (!editingId) setDueDate(defaultDate);
   }
 
@@ -84,7 +81,6 @@ export const DebtManager: React.FC<Props> = ({
   const parcelas = Math.max(1, parseInt(totalInstallments) || 1);
   const valorParcela = parseFloat(installmentAmount) || 0;
   const atual = Math.min(Math.max(1, parseInt(currentInstallment) || 1), parcelas);
-  // Parcelas restantes a partir desta (inclui a atual)
   const parcelasRestantes = parcelas - atual + 1;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,17 +104,10 @@ export const DebtManager: React.FC<Props> = ({
       if (editingId) {
         await onUpdateDebt(editingId, { ...base, status });
       } else {
-        // Se tem mais de uma parcela restante, cria recorrência mensal automática
-        // semana calculada pela data de vencimento escolhida
-        const weekOfDue = cycleWeekOf(dueDate);
-        const recurrence = parcelasRestantes > 1
-          ? { weeks: [weekOfDue] as CycleWeek[], months: parcelasRestantes }
-          : undefined;
-
         await onAddDebt({
           ...base,
-          status: 'Pendente',
-          recurrence,
+          status,
+          recurrence: parcelasRestantes > 1 ? { weeks: [cycleWeekOf(dueDate)], months: parcelasRestantes } : undefined,
         });
       }
       fecharForm();
@@ -128,69 +117,69 @@ export const DebtManager: React.FC<Props> = ({
   };
 
   return (
-    <section className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 sm:p-6 space-y-5">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+    <section className="bg-[#14141b] rounded-3xl border border-white/5 shadow-2xl p-4 sm:p-6 space-y-5">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
         <div className="min-w-0">
-          <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-amber-600 shrink-0" />
-            <span>Dívidas e parcelas</span>
-            <span className="text-xs bg-amber-50 text-amber-700 font-semibold px-2 py-0.5 rounded-full border border-amber-200">
+          <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+            <CreditCard className="w-5 h-5 text-amber-400 shrink-0" />
+            <span>Dívidas & Financiamentos</span>
+            <span className="text-xs bg-amber-500/10 text-amber-400 font-mono font-bold px-2 py-0.5 rounded-full border border-amber-500/20">
               {visible.length}
             </span>
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Ao quitar, a próxima parcela nasce no mês seguinte automaticamente.
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Cartões, empréstimos e carnês parcelados mês a mês.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="text-xs bg-slate-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl flex sm:block justify-between items-center">
-            <span className="text-slate-500">Quitado / total:</span>
+          <div className="text-xs bg-white/[0.03] sm:bg-transparent p-2.5 sm:p-0 rounded-2xl flex sm:block justify-between items-center border border-white/5 sm:border-0">
+            <span className="text-zinc-500">Quitado / Total:</span>
             <span className="ml-2 sm:ml-0 sm:block font-bold">
-              <span className="text-slate-900">{formatBRL(pago)}</span>
-              <span className="text-slate-400"> / {formatBRL(total)}</span>
+              <span className="text-white font-mono">{formatBRL(pago)}</span>
+              <span className="text-zinc-500 font-mono"> / {formatBRL(total)}</span>
             </span>
           </div>
 
           <button
             onClick={abrirNovo}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 cursor-pointer shadow-xs"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold text-black bg-[#ccff00] hover:bg-[#b8e600] active:scale-95 cursor-pointer transition-all shadow-[0_0_15px_rgba(204,255,0,0.2)]"
           >
             <Plus className="w-4 h-4" />
-            <span>Nova dívida</span>
+            <span>Nova Dívida</span>
           </button>
         </div>
       </header>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 rounded-2xl bg-[#181822] border border-white/10 space-y-4">
           {editingId && (
             <div className="flex items-center justify-between gap-2 -mb-1">
-              <span className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
-                <Pencil className="w-3.5 h-3.5" /> Editando esta dívida
+              <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                <Pencil className="w-3.5 h-3.5" /> Editando esta parcela
               </span>
               <button type="button" onClick={fecharForm} title="Cancelar edição"
-                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer">
+                className="p-1 rounded-lg text-zinc-400 hover:text-white cursor-pointer">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <Field label="Credor">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <Field label="Credor / Banco">
               <input
                 type="text" required autoFocus
-                placeholder="Cartão Nubank, loja, empréstimo..."
+                placeholder="Nubank, Inter, Empréstimo..."
                 value={creditor}
                 onChange={(e) => setCreditor(e.target.value)}
                 className={inputCls}
               />
             </Field>
 
-            <Field label="Descrição">
+            <Field label="Identificação">
               <input
                 type="text"
-                placeholder="Parcela do iPhone"
+                placeholder="Ex: Celular, Carro, Reforma..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className={inputCls}
@@ -200,23 +189,11 @@ export const DebtManager: React.FC<Props> = ({
             <Field label="Valor da parcela (R$)">
               <input
                 type="number" step="0.01" min="0.01" required
-                placeholder="300,00"
+                placeholder="350,00"
                 value={installmentAmount}
                 onChange={(e) => setInstallmentAmount(e.target.value)}
                 className={inputCls}
               />
-            </Field>
-
-            <Field label="Vencimento">
-              <input
-                type="date" required
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className={inputCls}
-              />
-              <span className="text-[10px] text-slate-500 mt-1 block">
-                cai na semana {cycleWeekOf(dueDate)}
-              </span>
             </Field>
 
             <Field label="Parcela atual">
@@ -237,6 +214,26 @@ export const DebtManager: React.FC<Props> = ({
               />
             </Field>
 
+            <Field label="Vencimento desta parcela">
+              <input
+                type="date" required
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className={inputCls}
+              />
+              <span className="text-[10px] text-zinc-500 font-mono mt-1 block">
+                Semana {cycleWeekOf(dueDate)} calculada
+              </span>
+            </Field>
+
+            {users.length > 1 && (
+              <Field label="De quem é">
+                <select value={userId} onChange={(e) => setUserId(e.target.value)} className={inputCls}>
+                  {users.map((u) => <option key={u.id} value={u.id} className="bg-[#181822] text-white">{u.name}</option>)}
+                </select>
+              </Field>
+            )}
+
             {editingId && (
               <Field label="Situação">
                 <select
@@ -244,157 +241,122 @@ export const DebtManager: React.FC<Props> = ({
                   onChange={(e) => setStatus(e.target.value as DebtStatus)}
                   className={inputCls}
                 >
-                  <option value="Pendente">Pendente</option>
-                  <option value="Pago">Paga</option>
-                  <option value="Atrasado">Atrasada</option>
-                </select>
-              </Field>
-            )}
-
-            {users.length > 1 && (
-              <Field label="De quem é">
-                <select value={userId} onChange={(e) => setUserId(e.target.value)} className={inputCls}>
-                  {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  <option value="Pendente" className="bg-[#181822] text-white">Pendente</option>
+                  <option value="Pago" className="bg-[#181822] text-white">Pago</option>
+                  <option value="Atrasado" className="bg-[#181822] text-white">Atrasado</option>
                 </select>
               </Field>
             )}
           </div>
 
-          {valorParcela > 0 && (
-            <p className="text-xs text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200">
-              Total da dívida: <strong>{formatBRL(valorParcela * parcelas)}</strong>
-              {' '}({parcelas}x de {formatBRL(valorParcela)})
-            </p>
-          )}
-
-          {!editingId && valorParcela > 0 && parcelasRestantes > 1 && (
-            <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
-              <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
-              <span>
-                Serão criados <strong>{parcelasRestantes} lançamentos</strong> automaticamente:
-                parcela {atual} este mês e as próximas {parcelasRestantes - 1} nos meses seguintes, sempre na mesma semana.
-              </span>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
             <button type="button" onClick={fecharForm} className={cancelCls}>Cancelar</button>
             <button
               type="submit"
               disabled={saving}
-              className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+              className="px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold text-black bg-[#ccff00] hover:bg-[#b8e600] disabled:opacity-50 cursor-pointer transition-all"
             >
-              {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Salvar'}
+              {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Confirmar Dívida'}
             </button>
           </div>
         </form>
       )}
 
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-white/5">
         {visible.map((item) => {
-          const quitada = item.status === 'Pago';
-          const ultima = item.currentInstallment >= item.totalInstallments;
-          const progresso = Math.round((item.currentInstallment / item.totalInstallments) * 100);
+          const isPago = item.status === 'Pago';
+          const isAtrasado = item.status === 'Atrasado';
 
           return (
             <div
               key={item.id}
-              className={`py-3 px-2 rounded-xl space-y-2 ${quitada ? 'bg-slate-50/60' : 'hover:bg-slate-50'}`}
+              className={`flex flex-col sm:flex-row sm:items-center justify-between py-3 px-3 rounded-2xl gap-2 transition-all ${
+                isPago ? 'bg-white/[0.01] opacity-75' : 'hover:bg-white/[0.03]'
+              }`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-start sm:items-center gap-3 min-w-0">
+                <button
+                  onClick={() => onPayInstallment(item.id)}
+                  title={isPago ? 'Parcela quitada' : 'Pagar esta parcela'}
+                  className={`w-7 h-7 shrink-0 rounded-full border flex items-center justify-center cursor-pointer transition-all ${
+                    isPago
+                      ? 'bg-amber-500 border-amber-500 text-white shadow-xs'
+                      : isAtrasado
+                      ? 'border-rose-500 bg-rose-500/10 text-rose-500'
+                      : 'border-white/20 hover:border-amber-400 text-transparent'
+                  }`}
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className={`text-sm font-semibold ${quitada ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                    <span className={`text-sm font-bold ${isPago ? 'text-zinc-500 line-through' : 'text-white'}`}>
                       {item.creditor}
                     </span>
+                    {item.description && item.description !== 'Parcelamento' && (
+                      <span className="text-xs text-zinc-400">· {item.description}</span>
+                    )}
                     {item.userName && users.length > 1 && (
-                      <Tag cls="bg-blue-50 text-blue-700 border-blue-200">
+                      <Tag cls="bg-white/5 text-zinc-300 border-white/10">
                         <User className="w-3 h-3" />{item.userName}
                       </Tag>
                     )}
-                    <Tag cls="bg-slate-100 text-slate-600 border-slate-200">Sem. {item.week}</Tag>
-                    <Tag cls={quitada
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-amber-50 text-amber-700 border-amber-200'}>
-                      {quitada ? 'quitada' : 'pendente'}
+                    <Tag cls="bg-[#ccff00]/10 text-[#ccff00] border-[#ccff00]/20 font-mono">
+                      {item.currentInstallment}/{item.totalInstallments}
                     </Tag>
-                    {item.seriesId && (
-                      <Tag cls="bg-indigo-50 text-indigo-700 border-indigo-200">
-                        <Repeat className="w-3 h-3" />recorrente
-                      </Tag>
+                    <Tag cls="bg-white/5 text-zinc-400 border-white/10 font-mono">Sem. {item.week}</Tag>
+                  </div>
+                  <div className="text-[11px] text-zinc-500 mt-0.5">
+                    Vencimento {formatBR(item.dueDate)} · Total: {formatBRL(item.totalAmount)}
+                    {isPago ? (
+                      <span className="text-emerald-400 font-semibold"> · quitado</span>
+                    ) : isAtrasado ? (
+                      <span className="text-rose-400 font-semibold"> · atrasado</span>
+                    ) : (
+                      <span className="text-amber-400 font-semibold"> · pendente</span>
                     )}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    {item.description} · vence {formatBR(item.dueDate)}
-                    {' '}· parcela {item.currentInstallment} de {item.totalInstallments}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between sm:justify-end gap-3">
-                  <span className="text-sm sm:text-base font-bold text-amber-700 whitespace-nowrap">
-                    {formatBRL(item.installmentAmount)}
-                  </span>
-
-                  {!quitada && (
-                    <button
-                      onClick={() => onPayInstallment(item.id)}
-                      title={ultima ? 'Quitar a última parcela' : 'Quitar e lançar a próxima no mês seguinte'}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer shadow-xs whitespace-nowrap"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      {ultima ? 'Quitar' : 'Pagar'}
-                    </button>
-                  )}
-
-                  {quitada && (
-                    <CircleCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-                  )}
-
-                  <button
-                    onClick={() => openGoogleCalendar({
-                      title: `Vencimento: ${item.creditor} (${formatBRL(item.installmentAmount)})`,
-                      description: `Pagamento de dívida no Fluxo Financeiro.\nCredor: ${item.creditor}\nDescrição: ${item.description || '-'}\nParcela: ${item.currentInstallment}/${item.totalInstallments}\nValor: ${formatBRL(item.installmentAmount)}`,
-                      startDate: item.dueDate,
-                    })}
-                    title="Adicionar lembrete no Google Agenda"
-                    className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
-                  >
-                    <Calendar className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() => abrirEdicao(item)}
-                    title="Editar valor, vencimento, parcelas..."
-                    className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() => onDeleteDebt(item.id)}
-                    title="Excluir"
-                    className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
 
-              {item.totalInstallments > 1 && (
-                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${quitada ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                    style={{ width: `${progresso}%` }}
-                  />
-                </div>
-              )}
+              <div className="flex items-center justify-between sm:justify-end gap-3 pl-10 sm:pl-0">
+                <span className="text-sm sm:text-base font-black text-amber-400 font-mono whitespace-nowrap">
+                  − {formatBRL(item.installmentAmount)}
+                </span>
+                <button
+                  onClick={() => openGoogleCalendar({
+                    title: `Parcela: ${item.creditor} (${item.currentInstallment}/${item.totalInstallments})`,
+                    description: `Vencimento de parcela no Fluxo Financeiro.\nCredor: ${item.creditor}\nValor: ${formatBRL(item.installmentAmount)}\nSituação: ${item.status}`,
+                    startDate: item.dueDate,
+                  })}
+                  title="Adicionar à Google Agenda"
+                  className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
+                >
+                  <Calendar className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => abrirEdicao(item)}
+                  title="Editar"
+                  className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onDeleteDebt(item.id)}
+                  title="Excluir"
+                  className="p-2 rounded-xl text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           );
         })}
 
         {visible.length === 0 && (
-          <p className="text-sm text-slate-400 text-center py-8">
-            Nenhuma dívida neste período.
+          <p className="text-sm text-zinc-500 text-center py-8 font-medium">
+            Nenhuma dívida registrada para este mês.
           </p>
         )}
       </div>
