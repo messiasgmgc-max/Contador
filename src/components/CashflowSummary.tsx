@@ -5,11 +5,9 @@ import { ArrowUpRight, ArrowDownRight, CreditCard, ShieldCheck } from 'lucide-re
 
 interface Props {
   summary: MonthSummary;
-  userName?: string;
-  onOpenCardDetails?: () => void;
 }
 
-export const CashflowSummary: React.FC<Props> = ({ summary, userName = 'Usuário', onOpenCardDetails }) => {
+export const CashflowSummary: React.FC<Props> = ({ summary }) => {
   const realOk = summary.balanceActual >= 0;
   const totalIn = summary.incomePlanned || 1;
   const pctRealizado = Math.min(100, Math.max(0, Math.round((summary.incomeActual / totalIn) * 100)));
@@ -26,7 +24,7 @@ export const CashflowSummary: React.FC<Props> = ({ summary, userName = 'Usuário
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#ccff00]/15 text-[#ccff00] border border-[#ccff00]/30">
+              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#ccff00]/15 text-[#ccff00] border border-[#ccff00]/30 font-mono">
                 Saldo Real em Caixa
               </span>
               <span className="text-[11px] text-zinc-400 flex items-center gap-1">
@@ -46,41 +44,30 @@ export const CashflowSummary: React.FC<Props> = ({ summary, userName = 'Usuário
             </p>
           </div>
 
-          {/* Cartão de Crédito Físico Estilo Pierre Mastercard Black */}
-          <div
-            onClick={onOpenCardDetails}
-            role="button"
-            tabIndex={0}
-            title="Clique para gerenciar compras e fatura do Cartão Pierre"
-            className="w-full sm:w-72 h-44 rounded-2xl bg-gradient-to-br from-zinc-900 via-zinc-950 to-black border border-white/15 p-4 shadow-xl flex flex-col justify-between relative group hover:border-[#ccff00]/60 hover:shadow-[0_0_20px_rgba(204,255,0,0.15)] cursor-pointer transition-all shrink-0 active:scale-98"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-sm font-black tracking-widest uppercase italic text-zinc-200 group-hover:text-[#ccff00] transition-colors">
-                  Pierre
-                </span>
-                <span className="block text-[9px] text-[#ccff00] font-mono font-semibold tracking-wider">
-                  FLUXO PRO · ABRIR ABA ➔
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-full bg-rose-500/80 -mr-2" />
-                <div className="w-6 h-6 rounded-full bg-amber-500/80" />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-[10px] text-zinc-400 uppercase font-mono tracking-widest">
+          {/* Painel de Saldo Projetado e Compromissos do Mês */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-center min-w-[200px]">
+              <span className="text-[10px] text-zinc-400 uppercase font-mono font-semibold tracking-wider">
                 Saldo Projetado
-              </div>
-              <div className="text-xl font-black text-white tracking-tight">
+              </span>
+              <span className={`text-xl sm:text-2xl font-black tracking-tight mt-1 ${summary.balancePlanned >= 0 ? 'text-[#ccff00]' : 'text-rose-400'}`}>
                 {formatBRL(summary.balancePlanned)}
-              </div>
+              </span>
+              <span className="text-[10px] text-zinc-500 mt-1">
+                Entradas Previstas − Saídas Totais
+              </span>
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-              <span className="tracking-widest">•••• 6123</span>
-              <span className="text-zinc-300 font-sans font-medium">{userName}</span>
+            <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-center min-w-[200px]">
+              <span className="text-[10px] text-zinc-400 uppercase font-mono font-semibold tracking-wider">
+                Compromissos Totais
+              </span>
+              <span className="text-xl sm:text-2xl font-black text-white tracking-tight mt-1 font-mono">
+                {formatBRL(summary.outgoing)}
+              </span>
+              <span className="text-[10px] text-zinc-500 mt-1">
+                Gastos ({formatBRL(summary.expenses)}) + Dívidas ({formatBRL(summary.debts)})
+              </span>
             </div>
           </div>
         </div>

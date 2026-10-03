@@ -41,7 +41,7 @@ export const GeminiAssistantModal: React.FC<Props> = ({
     {
       id: 'welcome',
       sender: 'gemini',
-      text: `Olá, ${financialContext.currentUser.name}! Sou Megamen, seu agente e inteligência financeira pessoal. Como posso ajudar com seus lançamentos ou orçamento de ${financialContext.monthKey}?`,
+      text: `Olá, ${financialContext.currentUser.name}! Sou seu assistente de inteligência financeira. Como posso ajudar com suas dúvidas, análises ou lançamentos de ${financialContext.monthKey}?`,
     },
   ]);
 
@@ -172,20 +172,20 @@ export const GeminiAssistantModal: React.FC<Props> = ({
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
       <div className="bg-[#121217] rounded-3xl border border-white/10 shadow-2xl max-w-lg w-full flex flex-col h-[90vh] max-h-[720px] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Topo do Assistente com Megamen (Referência 4) */}
+        {/* Topo do Assistente IA */}
         <div className="p-4 sm:p-5 bg-gradient-to-r from-[#181824] via-[#121218] to-black border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#ccff00] text-black font-black flex items-center justify-center text-sm shadow-[0_0_15px_rgba(204,255,0,0.3)]">
-              🐱
+              <Sparkles className="w-5 h-5 text-black fill-black" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-black text-white tracking-tight">Megamen AI</h3>
-                <span className="text-[9px] font-black uppercase tracking-wider bg-[#ccff00]/15 text-[#ccff00] border border-[#ccff00]/30 px-2 py-0.2 rounded-full">
-                  Agêntico Ativo
+                <h3 className="text-base font-black text-white tracking-tight">Assistente Financeiro IA</h3>
+                <span className="text-[9px] font-black uppercase tracking-wider bg-[#ccff00]/15 text-[#ccff00] border border-[#ccff00]/30 px-2 py-0.2 rounded-full font-mono">
+                  Online
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400">Escudo contra gastos e inteligência financeira</p>
+              <p className="text-[11px] text-zinc-400">Inteligência financeira e controle de fluxo</p>
             </div>
           </div>
 

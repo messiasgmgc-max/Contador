@@ -8,6 +8,7 @@ import { SpendingPanel } from './components/SpendingPanel';
 import { IncomeManager } from './components/IncomeManager';
 import { DebtManager } from './components/DebtManager';
 import { ExpenseManager } from './components/ExpenseManager';
+import { CardManager } from './components/CardManager';
 import { LoginScreen } from './components/LoginScreen';
 import { inputCls, cancelCls, Field } from './components/ui';
 import { monthLabel } from './lib/period';
@@ -210,11 +211,11 @@ function App() {
     selectedWeek,
   };
 
-  const cardExpenses = expenses.filter((e) => e.isCard);
+  const cardDebts = debts.filter((d) => d.isCard || d.creditor.toLowerCase().includes('cartão') || d.creditor.toLowerCase().includes('cartao'));
 
   const tabs: { id: Tab; label: string; count?: number; icon: ReactNode }[] = [
     { id: 'geral', label: 'Visão Geral', icon: <Layers className="w-3.5 h-3.5" /> },
-    { id: 'cartao', label: 'Cartão Pierre', count: cardExpenses.length, icon: <CreditCard className="w-3.5 h-3.5 text-[#ccff00]" /> },
+    { id: 'cartao', label: 'Cartão de Crédito', count: cardDebts.length, icon: <CreditCard className="w-3.5 h-3.5 text-[#ccff00]" /> },
     { id: 'receitas', label: 'Receitas', count: incomes.length, icon: <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" /> },
     { id: 'dividas', label: 'Dívidas', count: debts.length, icon: <CreditCard className="w-3.5 h-3.5 text-amber-400" /> },
     { id: 'gastos', label: 'Gastos', count: expenses.length, icon: <ShoppingBag className="w-3.5 h-3.5 text-rose-400" /> },
@@ -223,7 +224,7 @@ function App() {
   return (
     <div className="min-h-screen bg-[#0b0b0f] text-slate-100 font-['Inter',-apple-system,BlinkMacSystemFont,sans-serif] selection:bg-[#ccff00] selection:text-black pb-28 sm:pb-12">
 
-      {/* Top Header Estilo Pierre */}
+      {/* Top Header */}
       <header className="sticky top-0 z-40 w-full bg-[#0b0b0f]/80 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-3">
           
@@ -231,16 +232,16 @@ function App() {
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-[#161622] to-black border border-white/10 flex items-center justify-center shrink-0 shadow-lg">
               <span className="text-base sm:text-lg font-black italic tracking-widest text-[#ccff00]">
-                P
+                F
               </span>
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-sm sm:text-lg font-black tracking-tight block truncate text-white">
-                  Pierre <span className="text-[#ccff00] font-light">Pro</span>
+                  Fluxo <span className="text-[#ccff00] font-light">Financeiro</span>
                 </span>
-                <span className="hidden sm:inline-block text-[9px] font-black uppercase tracking-wider bg-[#ccff00]/15 text-[#ccff00] border border-[#ccff00]/30 px-2 py-0.2 rounded-full">
-                  Agêntico
+                <span className="hidden sm:inline-block text-[9px] font-black uppercase tracking-wider bg-[#ccff00]/15 text-[#ccff00] border border-[#ccff00]/30 px-2 py-0.2 rounded-full font-mono">
+                  Online
                 </span>
               </div>
               <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
@@ -256,15 +257,15 @@ function App() {
             </div>
           </div>
 
-          {/* Quick Actions (Megamen AI, Sync, Logout) */}
+          {/* Quick Actions (Assistente IA, Sync, Logout) */}
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowGemini(true)}
-              title="Assistente Megamen AI"
+              title="Assistente Financeiro IA"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[#ccff00] hover:bg-[#b8e600] active:scale-95 text-black text-xs font-black shadow-[0_0_15px_rgba(204,255,0,0.25)] cursor-pointer transition-all"
             >
               <Sparkles className="w-3.5 h-3.5 text-black fill-black" />
-              <span className="hidden sm:inline">Megamen AI</span>
+              <span className="hidden sm:inline">Assistente IA</span>
             </button>
 
             <button
@@ -416,11 +417,9 @@ function App() {
           </div>
         ) : (
           <>
-            {/* Saldo Real & Pierre Black Card */}
+            {/* Saldo Real e Métricas de Balanço */}
             <CashflowSummary
               summary={summary}
-              userName={currentUser.name}
-              onOpenCardDetails={() => setActiveTab('cartao')}
             />
 
             {/* Painel de Gastos com Donut Circular e Heatmap */}
@@ -474,40 +473,14 @@ function App() {
             </div>
 
             {activeTab === 'cartao' && (
-              <div className="space-y-6">
-                {/* Banner exclusivo do Cartão Pierre */}
-                <div className="rounded-3xl bg-gradient-to-r from-zinc-950 via-[#161622] to-black border border-[#ccff00]/30 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xl relative overflow-hidden">
-                  <div className="space-y-1 relative z-10">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#ccff00] font-mono">
-                      Fatura & Compras no Crédito
-                    </span>
-                    <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                      Cartão Pierre Black · Limite & Lançamentos
-                    </h3>
-                    <p className="text-xs text-zinc-400">
-                      Compras feitas no crédito separadas dos gastos à vista e contas fixas do dia a dia.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3 relative z-10">
-                    <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-right">
-                      <span className="text-[10px] text-zinc-500 uppercase font-mono block">Fatura do Mês</span>
-                      <span className="text-base sm:text-lg font-black text-white font-mono">
-                        R$ {cardExpenses.reduce((a, b) => a + b.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <ExpenseManager
-                  {...managerProps}
-                  expenses={cardExpenses}
-                  onAddExpense={actions.addExpense}
-                  onUpdateExpense={actions.updateExpense}
-                  onTogglePaid={actions.toggleExpensePaid}
-                  onDeleteExpense={actions.deleteExpense}
-                />
-              </div>
+              <CardManager
+                {...managerProps}
+                debts={debts}
+                onAddDebt={actions.addDebt}
+                onUpdateDebt={actions.updateDebt}
+                onPayInstallment={actions.payDebtInstallment}
+                onDeleteDebt={actions.deleteDebt}
+              />
             )}
 
             {(activeTab === 'geral' || activeTab === 'receitas') && (
@@ -546,7 +519,7 @@ function App() {
         )}
       </main>
 
-      {/* Floating Bottom Nav para Mobile (Estilo Pierre Island com Megamen) */}
+      {/* Floating Bottom Nav para Mobile */}
       <nav className="sm:hidden fixed bottom-4 left-4 right-4 z-50 bg-[#161620]/90 backdrop-blur-xl border border-white/10 rounded-3xl px-3 py-2 flex items-center justify-around shadow-2xl">
         {tabs.map((t) => (
           <button
@@ -565,9 +538,9 @@ function App() {
           className="flex flex-col items-center gap-1 py-1 px-2 rounded-2xl text-[10px] uppercase font-black tracking-wider text-[#ccff00]"
         >
           <div className="w-5 h-5 rounded-full bg-[#ccff00] text-black flex items-center justify-center text-[10px] font-black">
-            🐱
+            <Sparkles className="w-3 h-3 text-black fill-black" />
           </div>
-          <span>Megamen</span>
+          <span>IA</span>
         </button>
       </nav>
 

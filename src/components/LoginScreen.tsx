@@ -103,18 +103,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#ccff00]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-10 left-1/3 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Header com Logo Pierre */}
+      {/* Header com Logo Fluxo Financeiro */}
       <div className="text-center space-y-3 mb-8 relative z-10">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#161622] to-black border border-white/10 shadow-2xl relative group">
           <span className="text-2xl font-black italic tracking-widest text-zinc-100 group-hover:text-[#ccff00] transition-colors">
-            P
+            F
           </span>
           <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#ccff00] border-2 border-black" />
         </div>
 
         <div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center justify-center gap-2">
-            Pierre <span className="text-[#ccff00] font-sans font-light">Fluxo</span>
+            Fluxo <span className="text-[#ccff00] font-sans font-light">Financeiro</span>
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xs mx-auto">
             Uma inteligência que traz clareza para o seu dinheiro.

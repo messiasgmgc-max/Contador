@@ -294,6 +294,12 @@ export const DebtManager: React.FC<Props> = ({
                     <span className={`text-sm font-bold ${isPago ? 'text-zinc-500 line-through' : 'text-white'}`}>
                       {item.creditor}
                     </span>
+                    {item.isCard && (
+                      <Tag cls="bg-purple-500/15 text-purple-300 border-purple-500/30 font-semibold">
+                        <CreditCard className="w-3 h-3 text-purple-400" />
+                        {item.cardType === 'plano' ? 'Plano / Assinatura' : item.cardType === 'compra_mes' ? 'Compra do Mês' : 'Dívida do Cartão'}
+                      </Tag>
+                    )}
                     {item.description && item.description !== 'Parcelamento' && (
                       <span className="text-xs text-zinc-400">· {item.description}</span>
                     )}

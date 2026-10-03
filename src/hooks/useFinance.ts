@@ -89,6 +89,9 @@ export function useFinance() {
         week: (d.cycle_week ?? cycleWeekOf(d.due_date)) as CycleWeek,
         referenceMonth: monthKeyOf(d.due_date),
         status: d.status,
+        isCard: d.is_card ?? (d.creditor?.toLowerCase().includes('cartão') || d.creditor?.toLowerCase().includes('cartao') || d.description?.includes('[Cartão]') || d.description?.includes('💳')),
+        cardName: d.card_name ?? (d.creditor?.toLowerCase().includes('cartão') ? d.creditor : undefined),
+        cardType: d.card_type ?? undefined,
       })));
 
       setExpenses((eRes.data ?? []).map((d): ExpenseItem => ({
@@ -412,9 +415,18 @@ export function useFinance() {
       total_installments: item.totalInstallments,
       due_date,
       status: item.status,
+      is_card: item.isCard ?? false,
+      card_name: item.cardName ?? null,
+      card_type: item.cardType ?? null,
     }));
 
-    const { data, error } = await supabase.from('finance_debts').insert(rows).select();
+    let { data, error } = await supabase.from('finance_debts').insert(rows).select();
+    if (error && (error.message.includes('column') || error.code === '42703')) {
+      const fallbackRows = rows.map(({ is_card, card_name, card_type, ...rest }) => rest);
+      const fb = await supabase.from('finance_debts').insert(fallbackRows).select();
+      data = fb.data;
+      error = fb.error;
+    }
     if (error) { setErrorMessage(error.message); console.error(error); return; }
 
     setDebts((prev) => [...prev, ...(data ?? []).map((d): DebtItem => ({
@@ -432,6 +444,9 @@ export function useFinance() {
       week: (d.cycle_week ?? cycleWeekOf(d.due_date)) as CycleWeek,
       referenceMonth: monthKeyOf(d.due_date),
       status: d.status,
+      isCard: d.is_card ?? item.isCard,
+      cardName: d.card_name ?? item.cardName,
+      cardType: d.card_type ?? item.cardType,
     }))]);
   };
 
@@ -476,9 +491,18 @@ export function useFinance() {
       total_installments: target.totalInstallments,
       due_date: nextDue,
       status: 'Pendente' as const,
+      is_card: target.isCard ?? false,
+      card_name: target.cardName ?? null,
+      card_type: target.cardType ?? null,
     };
 
-    const { data, error: insErr } = await supabase.from('finance_debts').insert([next]).select().single();
+    let { data, error: insErr } = await supabase.from('finance_debts').insert([next]).select().single();
+    if (insErr && (insErr.message.includes('column') || insErr.code === '42703')) {
+      const { is_card, card_name, card_type, ...fallbackNext } = next;
+      const fb = await supabase.from('finance_debts').insert([fallbackNext]).select().single();
+      data = fb.data;
+      insErr = fb.error;
+    }
     if (insErr || !data) { console.error('Erro ao criar a próxima parcela:', insErr); return; }
 
     setDebts((prev) => [...prev, {
@@ -496,28 +520,50 @@ export function useFinance() {
       week: (data.cycle_week ?? cycleWeekOf(data.due_date)) as CycleWeek,
       referenceMonth: monthKeyOf(data.due_date),
       status: data.status,
+      isCard: data.is_card ?? target.isCard,
+      cardName: data.card_name ?? target.cardName,
+      cardType: data.card_type ?? target.cardType,
     }]);
   };
 
   const updateDebt = async (id: string, patch: EditDebt) => {
     const user = users.find((u) => u.id === patch.userId);
-    const { data, error } = await supabase
+    const updatePayload: any = {
+      user_id: patch.userId ?? null,
+      user_name: user?.name ?? patch.userName ?? null,
+      creditor: patch.creditor.trim(),
+      description: (patch.description || 'Parcelamento').trim(),
+      total_amount: patch.totalAmount,
+      installment_amount: patch.installmentAmount,
+      current_installment: patch.currentInstallment,
+      total_installments: patch.totalInstallments,
+      due_date: patch.dueDate,
+      status: patch.status,
+      is_card: patch.isCard ?? false,
+      card_name: patch.cardName ?? null,
+      card_type: patch.cardType ?? null,
+    };
+
+    let { data, error } = await supabase
       .from('finance_debts')
-      .update({
-        user_id: patch.userId ?? null,
-        user_name: user?.name ?? patch.userName ?? null,
-        creditor: patch.creditor.trim(),
-        description: (patch.description || 'Parcelamento').trim(),
-        total_amount: patch.totalAmount,
-        installment_amount: patch.installmentAmount,
-        current_installment: patch.currentInstallment,
-        total_installments: patch.totalInstallments,
-        due_date: patch.dueDate,
-        status: patch.status,
-      })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single();
+
+    if (error && (error.message.includes('column') || error.code === '42703')) {
+      delete updatePayload.is_card;
+      delete updatePayload.card_name;
+      delete updatePayload.card_type;
+      const fb = await supabase
+        .from('finance_debts')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .single();
+      data = fb.data;
+      error = fb.error;
+    }
 
     if (error || !data) { setErrorMessage(error?.message ?? 'Não deu para salvar a edição.'); return; }
 
@@ -535,6 +581,9 @@ export function useFinance() {
       week: (data.cycle_week ?? cycleWeekOf(data.due_date)) as CycleWeek,
       referenceMonth: monthKeyOf(data.due_date),
       status: data.status,
+      isCard: data.is_card ?? patch.isCard,
+      cardName: data.card_name ?? patch.cardName,
+      cardType: data.card_type ?? patch.cardType,
     } : d)));
   };
 

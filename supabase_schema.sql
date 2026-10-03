@@ -160,6 +160,15 @@ ALTER TABLE public.finance_incomes  ADD COLUMN IF NOT EXISTS updated_at TIMESTAM
 ALTER TABLE public.finance_debts    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW());
 ALTER TABLE public.finance_expenses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW());
 
+-- Campos específicos de Cartão de Crédito e Assinaturas
+ALTER TABLE public.finance_debts    ADD COLUMN IF NOT EXISTS is_card BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.finance_debts    ADD COLUMN IF NOT EXISTS card_name TEXT;
+ALTER TABLE public.finance_debts    ADD COLUMN IF NOT EXISTS card_type TEXT; -- 'plano', 'compra_mes', 'parcelada'
+
+ALTER TABLE public.finance_expenses ADD COLUMN IF NOT EXISTS is_card BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.finance_expenses ADD COLUMN IF NOT EXISTS card_name TEXT;
+ALTER TABLE public.finance_expenses ADD COLUMN IF NOT EXISTS installments INT DEFAULT 1;
+
 -- Garantir o tipo e a FK de user_id nas três tabelas.
 --
 -- Dois estragos aparecem em bancos que já rodaram versões antigas:

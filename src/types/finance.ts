@@ -63,6 +63,9 @@ export interface DebtItem extends BaseEntry {
   totalInstallments: number;
   dueDate: string; // YYYY-MM-DD
   status: DebtStatus;
+  isCard?: boolean;
+  cardName?: string;
+  cardType?: 'plano' | 'compra_mes' | 'parcelada';
 }
 
 export interface ExpenseItem extends BaseEntry {
