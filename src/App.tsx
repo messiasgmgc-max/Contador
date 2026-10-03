@@ -20,7 +20,7 @@ import type { WeekNumber, UserProfile } from './types/finance';
 import {
   ArrowUpRight, CreditCard, ShoppingBag, Layers,
   RefreshCw, LogOut, Edit3, TriangleAlert, Calendar, Sparkles, Download, ArrowDownCircle,
-  PieChart, TrendingUp, Trophy, Zap, X
+  PieChart, TrendingUp, Trophy, Zap
 } from 'lucide-react';
 import { GeminiAssistantModal } from './components/GeminiAssistantModal';
 import { CalendarExportModal } from './components/CalendarExportModal';
@@ -233,13 +233,13 @@ function App() {
 
   const tabs: { id: Tab; label: string; count?: number; icon: ReactNode }[] = [
     { id: 'geral', label: 'Visão Geral', icon: <Layers className="w-3.5 h-3.5" /> },
-    { id: 'envelopes', label: 'Envelopes (YNAB)', icon: <PieChart className="w-3.5 h-3.5 text-[#ccff00]" /> },
-    { id: 'previsao', label: 'Previsão Fluxo', icon: <TrendingUp className="w-3.5 h-3.5 text-blue-400" /> },
-    { id: 'metas', label: 'Metas & Hábitos', icon: <Trophy className="w-3.5 h-3.5 text-amber-400" /> },
-    { id: 'cartao', label: 'Cartão de Crédito', count: cardDebts.length, icon: <CreditCard className="w-3.5 h-3.5 text-purple-400" /> },
     { id: 'receitas', label: 'Receitas', count: incomes.length, icon: <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" /> },
     { id: 'dividas', label: 'Dívidas', count: debts.length, icon: <CreditCard className="w-3.5 h-3.5 text-amber-400" /> },
     { id: 'gastos', label: 'Gastos', count: expenses.length, icon: <ShoppingBag className="w-3.5 h-3.5 text-rose-400" /> },
+    { id: 'cartao', label: 'Cartão', count: cardDebts.length, icon: <CreditCard className="w-3.5 h-3.5 text-purple-400" /> },
+    { id: 'envelopes', label: 'Envelopes (YNAB)', icon: <PieChart className="w-3.5 h-3.5 text-[#ccff00]" /> },
+    { id: 'previsao', label: 'Previsão Fluxo', icon: <TrendingUp className="w-3.5 h-3.5 text-blue-400" /> },
+    { id: 'metas', label: 'Metas & Hábitos', icon: <Trophy className="w-3.5 h-3.5 text-amber-400" /> },
   ];
 
   return (
@@ -470,14 +470,17 @@ function App() {
               onSelectWeek={toggleWeek}
             />
 
-            {/* Seletor de Abas Estilo Pierre Pill */}
+            {/* Seletor de Abas */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
-              <div className="hidden sm:flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
                 {tabs.map((t) => (
                   <button
                     key={t.id}
-                    onClick={() => setActiveTab(t.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                    onClick={() => {
+                      setShowQuickNumpad(false);
+                      setActiveTab(t.id);
+                    }}
+                    className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-[11px] sm:text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                       activeTab === t.id
                         ? 'bg-white text-black shadow-lg shadow-white/5'
                         : 'bg-[#14141b] border border-white/5 text-zinc-400 hover:text-white hover:border-white/15'
@@ -577,18 +580,17 @@ function App() {
 
       {/* Modal de Lançamento Rápido (Estilo Monefy / Notion) */}
       {showQuickNumpad && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
-          <div className="relative w-full max-w-md">
-            <button
-              onClick={() => setShowQuickNumpad(false)}
-              className="absolute -top-11 right-0 text-zinc-400 hover:text-white p-2 cursor-pointer flex items-center gap-1 text-xs font-mono"
-            >
-              <span>ESC</span>
-              <X className="w-4 h-4" />
-            </button>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowQuickNumpad(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+        >
+          <div className="relative w-full max-w-md my-auto">
             <QuickExpenseNumpad
               defaultUserId={currentUser.id}
               userName={currentUser.name}
+              onClose={() => setShowQuickNumpad(false)}
               onAddExpense={async (item) => {
                 await actions.addExpense(item);
                 setShowQuickNumpad(false);
@@ -599,37 +601,50 @@ function App() {
       )}
 
       {/* Floating Bottom Nav para Mobile */}
-      <nav className="sm:hidden fixed bottom-4 left-3 right-3 z-50 bg-[#161620]/95 backdrop-blur-xl border border-white/10 rounded-3xl px-2 py-2 flex items-center justify-between shadow-2xl overflow-x-auto no-scrollbar">
-        {tabs.slice(0, 5).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            className={`flex flex-col items-center gap-1 py-1 px-1.5 rounded-2xl text-[9px] uppercase font-bold tracking-wider transition-all shrink-0 ${
-              activeTab === t.id ? 'text-[#ccff00] scale-105' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            {t.icon}
-            <span className="truncate max-w-[48px]">{t.label.split(' ')[0]}</span>
-          </button>
-        ))}
+      <nav className="sm:hidden fixed bottom-3 left-2 right-2 z-40 bg-[#14141d]/95 backdrop-blur-2xl border border-white/10 rounded-3xl p-1.5 flex items-center justify-between shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
+        {tabs.slice(0, 5).map((t) => {
+          const isActive = activeTab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => {
+                setShowQuickNumpad(false); // Garante que o numpad fecha ao trocar de aba
+                setActiveTab(t.id);
+              }}
+              className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center gap-0.5 text-[9px] uppercase font-bold tracking-tight transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-white/10 text-[#ccff00] shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <div className={`${isActive ? 'scale-110' : ''} transition-transform`}>
+                {t.icon}
+              </div>
+              <span className="truncate max-w-[50px] leading-tight">{t.label.split(' ')[0]}</span>
+            </button>
+          );
+        })}
 
-        {/* Botão Rápido Numpad */}
+        {/* Botão Central de Ação Rápida */}
         <button
           onClick={() => setShowQuickNumpad(true)}
-          className="flex flex-col items-center gap-1 py-1 px-1.5 rounded-2xl text-[9px] uppercase font-black tracking-wider text-white shrink-0"
+          title="Lançamento Rápido"
+          className="py-1 px-2.5 mx-0.5 rounded-2xl bg-[#ccff00] text-black flex flex-col items-center gap-0.5 text-[9px] font-black uppercase tracking-tight shadow-[0_0_15px_rgba(204,255,0,0.3)] active:scale-95 cursor-pointer shrink-0 transition-transform"
         >
-          <div className="w-6 h-6 rounded-full bg-white/10 border border-white/20 text-[#ccff00] flex items-center justify-center">
-            <Zap className="w-3.5 h-3.5" />
-          </div>
+          <Zap className="w-4 h-4 text-black fill-black" />
           <span>Lançar</span>
         </button>
 
         {/* Botão IA */}
         <button
-          onClick={() => setShowGemini(true)}
-          className="flex flex-col items-center gap-1 py-1 px-1.5 rounded-2xl text-[9px] uppercase font-black tracking-wider text-[#ccff00] shrink-0"
+          onClick={() => {
+            setShowQuickNumpad(false);
+            setShowGemini(true);
+          }}
+          title="Assistente IA"
+          className="flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center gap-0.5 text-[9px] uppercase font-black tracking-tight text-[#ccff00] hover:bg-white/5 cursor-pointer transition-all"
         >
-          <div className="w-6 h-6 rounded-full bg-[#ccff00] text-black flex items-center justify-center text-[10px] font-black">
+          <div className="w-5 h-5 rounded-full bg-[#ccff00] text-black flex items-center justify-center text-[10px] font-black shadow-xs">
             <Sparkles className="w-3 h-3 text-black fill-black" />
           </div>
           <span>IA</span>

@@ -2,19 +2,21 @@ import React, { useState } from 'react';
 import type { ExpenseCategory, NewExpense } from '../types/finance';
 import { EXPENSE_CATEGORIES, CATEGORY_LABEL, categoryIcon } from './expenseCategories';
 import { todayISO, formatBRL } from '../lib/period';
-import { Zap, Check, CreditCard, Sparkles, Delete } from 'lucide-react';
+import { Zap, Check, CreditCard, Sparkles, Delete, X } from 'lucide-react';
 
 interface Props {
   onAddExpense: (item: NewExpense) => Promise<void> | void;
   defaultUserId?: string;
   userName?: string;
   onOpenFullForm?: () => void;
+  onClose?: () => void;
 }
 
 export const QuickExpenseNumpad: React.FC<Props> = ({
   onAddExpense,
   defaultUserId,
   userName,
+  onClose,
 }) => {
   const [displayValue, setDisplayValue] = useState('0');
   const [description, setDescription] = useState('');
@@ -107,19 +109,32 @@ export const QuickExpenseNumpad: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Alternador Dinheiro / Cartão */}
-        <button
-          type="button"
-          onClick={() => setIsCard(!isCard)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-            isCard
-              ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-xs'
-              : 'bg-white/5 text-zinc-400 border-white/10 hover:text-white'
-          }`}
-        >
-          <CreditCard className="w-3.5 h-3.5" />
-          <span>{isCard ? 'No Cartão' : 'À Vista'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Alternador Dinheiro / Cartão */}
+          <button
+            type="button"
+            onClick={() => setIsCard(!isCard)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+              isCard
+                ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-xs'
+                : 'bg-white/5 text-zinc-400 border-white/10 hover:text-white'
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5" />
+            <span>{isCard ? 'No Cartão' : 'À Vista'}</span>
+          </button>
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              title="Fechar"
+              className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Visor de Valor Gigante */}

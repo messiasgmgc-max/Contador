@@ -39,9 +39,16 @@ export const CashflowSummary: React.FC<Props> = ({ summary }) => {
               </span>
             </div>
 
-            <p className="text-xs text-zinc-400">
-              Recebido: <span className="text-emerald-400 font-semibold">{formatBRL(summary.incomeActual)}</span> · Pago: <span className="text-rose-400 font-semibold">{formatBRL(summary.outgoingPaid)}</span>
-            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
+              <p>
+                Recebido: <span className="text-emerald-400 font-semibold">{formatBRL(summary.incomeActual)}</span> · Pago: <span className="text-rose-400 font-semibold">{formatBRL(summary.outgoingPaid)}</span>
+              </p>
+              {Math.abs(summary.previousBalance) > 0.01 && (
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-300">
+                  {summary.previousBalance >= 0 ? '+' : '−'} {formatBRL(Math.abs(summary.previousBalance))} de meses anteriores
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Painel de Saldo Projetado e Compromissos do Mês */}

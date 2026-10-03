@@ -207,6 +207,18 @@ export function useFinance() {
     const expensesTotal = sum(monthExpenses.map((e) => e.amount));
     const expensesPaid = sum(monthExpenses.filter((e) => e.paid).map((e) => e.amount));
 
+    // Saldo acumulado de todos os meses anteriores a este monthKey
+    const pastIncomes = userIncomes.filter((i) => i.referenceMonth < monthKey && i.received);
+    const pastDebts = userDebts.filter((d) => d.referenceMonth < monthKey && d.status === 'Pago');
+    const pastExpenses = userExpenses.filter((e) => e.referenceMonth < monthKey && e.paid);
+
+    const pastIncomeTotal = sum(pastIncomes.map((i) => i.amount));
+    const pastOutgoingTotal = sum(pastDebts.map((d) => d.installmentAmount)) + sum(pastExpenses.map((e) => e.amount));
+    const previousBalance = pastIncomeTotal - pastOutgoingTotal;
+
+    const monthBalanceActual = incomeActual - (debtsPaid + expensesPaid);
+    const monthBalancePlanned = incomePlanned - (debtsTotal + expensesTotal);
+
     return {
       incomePlanned,
       incomeActual,
@@ -216,11 +228,14 @@ export function useFinance() {
       expensesPaid,
       outgoing: debtsTotal + expensesTotal,
       outgoingPaid: debtsPaid + expensesPaid,
-      balancePlanned: incomePlanned - (debtsTotal + expensesTotal),
-      // O saldo que importa: entrou de verdade menos saiu de verdade.
-      balanceActual: incomeActual - (debtsPaid + expensesPaid),
+      previousBalance,
+      monthBalanceActual,
+      monthBalancePlanned,
+      balancePlanned: previousBalance + monthBalancePlanned,
+      // Saldo Real em Caixa Acumulativo: o que sobrou dos meses anteriores + o realizado deste mês
+      balanceActual: previousBalance + monthBalanceActual,
     };
-  }, [monthIncomes, monthDebts, monthExpenses]);
+  }, [monthIncomes, monthDebts, monthExpenses, userIncomes, userDebts, userExpenses, monthKey]);
 
   const weeks = useMemo<WeekSummary[]>(() =>
     ([1, 2, 3, 4] as CycleWeek[]).map((w) => {

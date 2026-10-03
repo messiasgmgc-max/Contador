@@ -117,9 +117,14 @@ export interface MonthSummary {
   expensesPaid: number;
   outgoing: number;
   outgoingPaid: number;
-  /** Previsto: tudo que está cadastrado, pago ou não. */
+  /** Saldo acumulado que veio dos meses anteriores */
+  previousBalance: number;
+  /** Saldo isolado deste mês (Entradas - Saídas do mês) */
+  monthBalanceActual: number;
+  monthBalancePlanned: number;
+  /** Previsto acumulado com meses anteriores */
   balancePlanned: number;
-  /** Real: o que entrou de verdade menos o que saiu de verdade. */
+  /** Real acumulado com meses anteriores (caixa real acumulativo) */
   balanceActual: number;
 }
 
