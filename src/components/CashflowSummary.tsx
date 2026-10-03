@@ -5,9 +5,10 @@ import { ArrowUpRight, ArrowDownRight, CreditCard, ShieldCheck } from 'lucide-re
 
 interface Props {
   summary: MonthSummary;
+  onNavigateTab?: (tab: 'receitas' | 'gastos' | 'dividas' | 'cartao') => void;
 }
 
-export const CashflowSummary: React.FC<Props> = ({ summary }) => {
+export const CashflowSummary: React.FC<Props> = ({ summary, onNavigateTab }) => {
   const realOk = summary.balanceActual >= 0;
   const totalIn = summary.incomePlanned || 1;
   const pctRealizado = Math.min(100, Math.max(0, Math.round((summary.incomeActual / totalIn) * 100)));
@@ -54,14 +55,23 @@ export const CashflowSummary: React.FC<Props> = ({ summary }) => {
           {/* Painel de Saldo Projetado e Compromissos do Mês */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col justify-center min-w-[200px]">
-              <span className="text-[10px] text-zinc-400 uppercase font-mono font-semibold tracking-wider">
-                Saldo Projetado
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-zinc-400 uppercase font-mono font-semibold tracking-wider">
+                  Saldo Projetado
+                </span>
+                {Math.abs(summary.previousBalance) > 0.01 && (
+                  <span className="text-[9px] font-mono text-[#ccff00] bg-[#ccff00]/10 px-1.5 py-0.5 rounded">
+                    Acumulado
+                  </span>
+                )}
+              </div>
               <span className={`text-xl sm:text-2xl font-black tracking-tight mt-1 ${summary.balancePlanned >= 0 ? 'text-[#ccff00]' : 'text-rose-400'}`}>
                 {formatBRL(summary.balancePlanned)}
               </span>
               <span className="text-[10px] text-zinc-500 mt-1">
-                Entradas Previstas − Saídas Totais
+                {Math.abs(summary.previousBalance) > 0.01
+                  ? `Anterior (${formatBRL(summary.previousBalance)}) + Previsto Mês`
+                  : 'Entradas Previstas − Saídas Totais'}
               </span>
             </div>
 
@@ -109,30 +119,33 @@ export const CashflowSummary: React.FC<Props> = ({ summary }) => {
         </div>
       </div>
 
-      {/* Grid com os 3 cards secundários em visual Dark Glass */}
+      {/* Grid com os 3 cards secundários em visual Dark Glass e botões de navegação */}
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
         <GlassCard
-          label="Entradas Previstas"
+          label="Receber"
           value={formatBRL(summary.incomePlanned)}
           sub={`${formatBRL(summary.incomeActual)} já caíram`}
           icon={<ArrowUpRight className="w-4 h-4 text-emerald-400" />}
           iconBg="bg-emerald-500/10 border-emerald-500/20"
+          onClick={onNavigateTab ? () => onNavigateTab('receitas') : undefined}
         />
         <GlassCard
-          label="Gastos Previstos"
+          label="Gastos"
           value={formatBRL(summary.expenses)}
           sub={`${formatBRL(summary.expensesPaid)} pagos`}
           icon={<ArrowDownRight className="w-4 h-4 text-rose-400" />}
           iconBg="bg-rose-500/10 border-rose-500/20"
           valueColor="text-rose-400"
+          onClick={onNavigateTab ? () => onNavigateTab('gastos') : undefined}
         />
         <GlassCard
-          label="Dívidas & Parcelas"
+          label="Dívidas & Cartão"
           value={formatBRL(summary.debts)}
           sub={`${formatBRL(summary.debtsPaid)} quitadas`}
           icon={<CreditCard className="w-4 h-4 text-amber-400" />}
           iconBg="bg-amber-500/10 border-amber-500/20"
           valueColor="text-amber-400"
+          onClick={onNavigateTab ? () => onNavigateTab('dividas') : undefined}
         />
       </div>
     </div>
@@ -146,13 +159,21 @@ const GlassCard: React.FC<{
   icon: React.ReactNode;
   iconBg: string;
   valueColor?: string;
-}> = ({ label, value, sub, icon, iconBg, valueColor = 'text-white' }) => (
-  <div className="rounded-2xl bg-[#14141b] border border-white/5 p-3.5 sm:p-5 space-y-1.5 hover:border-white/15 transition-all">
+  onClick?: () => void;
+}> = ({ label, value, sub, icon, iconBg, valueColor = 'text-white', onClick }) => (
+  <div
+    onClick={onClick}
+    role={onClick ? 'button' : undefined}
+    tabIndex={onClick ? 0 : undefined}
+    className={`rounded-2xl bg-[#14141b] border border-white/5 p-3.5 sm:p-5 space-y-1.5 transition-all text-left ${
+      onClick ? 'cursor-pointer hover:border-[#ccff00]/40 hover:bg-[#181824] active:scale-[0.98] group' : 'hover:border-white/15'
+    }`}
+  >
     <div className="flex items-center justify-between gap-1">
-      <span className="text-[10px] sm:text-xs font-semibold text-zinc-400 uppercase tracking-wider truncate">
+      <span className="text-[10px] sm:text-xs font-semibold text-zinc-400 uppercase tracking-wider truncate group-hover:text-white transition-colors">
         {label}
       </span>
-      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl ${iconBg} border flex items-center justify-center shrink-0`}>
+      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl ${iconBg} border flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform`}>
         {icon}
       </div>
     </div>

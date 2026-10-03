@@ -15,7 +15,7 @@ import { GamificationAndGoalsPanel } from './components/GamificationAndGoalsPane
 import { CashflowForecastView } from './components/CashflowForecastView';
 import { LoginScreen } from './components/LoginScreen';
 import { inputCls, cancelCls, Field } from './components/ui';
-import { monthLabel } from './lib/period';
+import { monthLabel, formatBRL } from './lib/period';
 import type { WeekNumber, UserProfile } from './types/finance';
 import {
   ArrowUpRight, CreditCard, ShoppingBag, Layers,
@@ -453,24 +453,33 @@ function App() {
             {/* Saldo Real e Métricas de Balanço */}
             <CashflowSummary
               summary={summary}
+              onNavigateTab={(tab) => {
+                setShowQuickNumpad(false);
+                setActiveTab(tab);
+              }}
             />
 
-            {/* Painel de Gastos com Donut Circular e Heatmap */}
-            <SpendingPanel
-              spending={spending}
-              byCategory={expensesByCategory}
-              monthLabelText={monthLabel(monthKey)}
-            />
+            {/* Quando estiver na Visão Geral, exibe os painéis analíticos */}
+            {activeTab === 'geral' && (
+              <>
+                {/* Painel de Gastos com Donut Circular e Heatmap */}
+                <SpendingPanel
+                  spending={spending}
+                  byCategory={expensesByCategory}
+                  monthLabelText={monthLabel(monthKey)}
+                />
 
-            {/* Linha do Tempo e Semanas do Mês */}
-            <CycleTimeline
-              weeks={weeks}
-              monthKey={monthKey}
-              selectedWeek={selectedWeek}
-              onSelectWeek={toggleWeek}
-            />
+                {/* Linha do Tempo e Semanas do Mês */}
+                <CycleTimeline
+                  weeks={weeks}
+                  monthKey={monthKey}
+                  selectedWeek={selectedWeek}
+                  onSelectWeek={toggleWeek}
+                />
+              </>
+            )}
 
-            {/* Seletor de Abas */}
+            {/* Seletor de Abas / Páginas */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
                 {tabs.map((t) => (
@@ -508,6 +517,7 @@ function App() {
               </div>
             </div>
 
+            {/* Páginas Dedicadas */}
             {activeTab === 'envelopes' && (
               <ZeroBasedBudgetingView
                 budget={zeroBudget}
@@ -542,7 +552,7 @@ function App() {
               />
             )}
 
-            {(activeTab === 'geral' || activeTab === 'receitas') && (
+            {activeTab === 'receitas' && (
               <IncomeManager
                 {...managerProps}
                 incomes={incomes}
@@ -553,7 +563,7 @@ function App() {
               />
             )}
 
-            {(activeTab === 'geral' || activeTab === 'dividas') && (
+            {activeTab === 'dividas' && (
               <DebtManager
                 {...managerProps}
                 debts={debts}
@@ -564,7 +574,7 @@ function App() {
               />
             )}
 
-            {(activeTab === 'geral' || activeTab === 'gastos') && (
+            {activeTab === 'gastos' && (
               <ExpenseManager
                 {...managerProps}
                 expenses={expenses}
@@ -573,6 +583,139 @@ function App() {
                 onTogglePaid={actions.toggleExpensePaid}
                 onDeleteExpense={actions.deleteExpense}
               />
+            )}
+
+            {/* Na aba Geral, exibe resumo rápido com atalhos para cada área */}
+            {activeTab === 'geral' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-3xl bg-[#14141b] border border-white/5 p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black text-white flex items-center gap-2">
+                      <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+                      Últimas Receitas
+                    </h3>
+                    <button
+                      onClick={() => setActiveTab('receitas')}
+                      className="text-xs font-bold text-[#ccff00] hover:underline cursor-pointer"
+                    >
+                      Abrir Receitas →
+                    </button>
+                  </div>
+                  {incomes.length === 0 ? (
+                    <p className="text-xs text-zinc-500 py-4 text-center">Nenhuma receita cadastrada neste mês.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {incomes.slice(0, 4).map((inc) => (
+                        <div key={inc.id} className="flex items-center justify-between p-2.5 rounded-2xl bg-white/[0.02] border border-white/5 text-xs">
+                          <div className="min-w-0">
+                            <p className="font-bold text-white truncate">{inc.description}</p>
+                            <p className="text-[10px] text-zinc-400 font-mono">{inc.category}</p>
+                          </div>
+                          <span className="font-bold text-emerald-400 font-mono ml-2 shrink-0">
+                            +{formatBRL(inc.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-3xl bg-[#14141b] border border-white/5 p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black text-white flex items-center gap-2">
+                      <ShoppingBag className="w-4 h-4 text-rose-400" />
+                      Últimos Gastos
+                    </h3>
+                    <button
+                      onClick={() => setActiveTab('gastos')}
+                      className="text-xs font-bold text-[#ccff00] hover:underline cursor-pointer"
+                    >
+                      Abrir Gastos →
+                    </button>
+                  </div>
+                  {expenses.length === 0 ? (
+                    <p className="text-xs text-zinc-500 py-4 text-center">Nenhum gasto cadastrado neste mês.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {expenses.slice(0, 4).map((exp) => (
+                        <div key={exp.id} className="flex items-center justify-between p-2.5 rounded-2xl bg-white/[0.02] border border-white/5 text-xs">
+                          <div className="min-w-0">
+                            <p className="font-bold text-white truncate">{exp.description}</p>
+                            <p className="text-[10px] text-zinc-400 font-mono">{exp.category}</p>
+                          </div>
+                          <span className="font-bold text-rose-400 font-mono ml-2 shrink-0">
+                            -{formatBRL(exp.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-3xl bg-[#14141b] border border-white/5 p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black text-white flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-amber-400" />
+                      Dívidas & Parcelas
+                    </h3>
+                    <button
+                      onClick={() => setActiveTab('dividas')}
+                      className="text-xs font-bold text-[#ccff00] hover:underline cursor-pointer"
+                    >
+                      Abrir Dívidas →
+                    </button>
+                  </div>
+                  {debts.length === 0 ? (
+                    <p className="text-xs text-zinc-500 py-4 text-center">Nenhuma dívida cadastrada neste mês.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {debts.slice(0, 3).map((d) => (
+                        <div key={d.id} className="flex items-center justify-between p-2.5 rounded-2xl bg-white/[0.02] border border-white/5 text-xs">
+                          <div className="min-w-0">
+                            <p className="font-bold text-white truncate">{d.creditor}</p>
+                            <p className="text-[10px] text-zinc-400 font-mono">Parcela {d.currentInstallment}/{d.totalInstallments}</p>
+                          </div>
+                          <span className="font-bold text-amber-400 font-mono ml-2 shrink-0">
+                            {formatBRL(d.installmentAmount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-3xl bg-[#14141b] border border-white/5 p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black text-white flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-purple-400" />
+                      Cartão de Crédito
+                    </h3>
+                    <button
+                      onClick={() => setActiveTab('cartao')}
+                      className="text-xs font-bold text-[#ccff00] hover:underline cursor-pointer"
+                    >
+                      Abrir Cartão →
+                    </button>
+                  </div>
+                  {cardDebts.length === 0 ? (
+                    <p className="text-xs text-zinc-500 py-4 text-center">Nenhuma despesa de cartão neste mês.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {cardDebts.slice(0, 3).map((c) => (
+                        <div key={c.id} className="flex items-center justify-between p-2.5 rounded-2xl bg-white/[0.02] border border-white/5 text-xs">
+                          <div className="min-w-0">
+                            <p className="font-bold text-white truncate">{c.description || c.creditor}</p>
+                            <p className="text-[10px] text-zinc-400 font-mono">{c.cardName || 'Cartão'} • {c.currentInstallment}/{c.totalInstallments}</p>
+                          </div>
+                          <span className="font-bold text-purple-400 font-mono ml-2 shrink-0">
+                            {formatBRL(c.installmentAmount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </>
         )}
