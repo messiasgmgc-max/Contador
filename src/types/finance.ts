@@ -72,6 +72,9 @@ export interface ExpenseItem extends BaseEntry {
   category: ExpenseCategory;
   isFixed: boolean;
   paid: boolean;
+  isCard?: boolean;
+  cardName?: string;
+  installments?: number;
 }
 
 /**

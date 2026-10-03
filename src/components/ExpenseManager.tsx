@@ -7,7 +7,7 @@ import { EXPENSE_CATEGORIES, CATEGORY_LABEL, categoryIcon } from './expenseCateg
 import { inputCls, cancelCls, Field, Tag } from './ui';
 import { formatBRL, formatBR, cycleWeekOf, currentMonthKey, todayISO } from '../lib/period';
 import { openGoogleCalendar } from '../lib/calendar';
-import { Plus, Check, Trash2, ShoppingBag, User, Repeat, Filter, X, Pencil, Calendar } from 'lucide-react';
+import { Plus, Check, Trash2, ShoppingBag, User, Repeat, Filter, X, Pencil, Calendar, CreditCard } from 'lucide-react';
 
 interface Props {
   expenses: ExpenseItem[];
@@ -34,6 +34,9 @@ export const ExpenseManager: React.FC<Props> = ({
   const [category, setCategory] = useState<ExpenseCategory>('Alimentacao');
   const [userId, setUserId] = useState(defaultUserId ?? users[0]?.id ?? '');
   const [isFixed, setIsFixed] = useState(false);
+  const [isCard, setIsCard] = useState(false);
+  const [cardName, setCardName] = useState('Pierre Black');
+  const [installments, setInstallments] = useState('1');
   const [paidNow, setPaidNow] = useState(true);
   const [recurring, setRecurring] = useState(false);
   const [weeks, setWeeks] = useState<CycleWeek[]>([1, 2, 3, 4]);
@@ -52,6 +55,9 @@ export const ExpenseManager: React.FC<Props> = ({
     setEditingId(null);
     setDescription('');
     setAmount('');
+    setIsCard(false);
+    setCardName('Pierre Black');
+    setInstallments('1');
     setRecurring(false);
     setIsFixed(false);
     setPaidNow(true);
@@ -72,6 +78,9 @@ export const ExpenseManager: React.FC<Props> = ({
     setCategory(item.category);
     setUserId(item.userId ?? '');
     setIsFixed(item.isFixed);
+    setIsCard(Boolean(item.isCard));
+    setCardName(item.cardName ?? 'Pierre Black');
+    setInstallments(String(item.installments ?? 1));
     setPaidNow(item.paid);
     setRecurring(false);
     setShowForm(true);
@@ -80,11 +89,13 @@ export const ExpenseManager: React.FC<Props> = ({
   // Filtros da lista
   const [filterCategory, setFilterCategory] = useState<ExpenseCategory | 'TODAS'>('TODAS');
   const [onlyUnpaid, setOnlyUnpaid] = useState(false);
+  const [onlyCard, setOnlyCard] = useState(false);
 
   const visible = expenses.filter((e) => {
     if (selectedWeek !== 'ALL' && e.week !== selectedWeek) return false;
     if (filterCategory !== 'TODAS' && e.category !== filterCategory) return false;
     if (onlyUnpaid && e.paid) return false;
+    if (onlyCard && !e.isCard) return false;
     return true;
   });
 
@@ -92,7 +103,7 @@ export const ExpenseManager: React.FC<Props> = ({
   const paid = visible.filter((e) => e.paid).reduce((a, e) => a + e.amount, 0);
 
   const presentCategories = EXPENSE_CATEGORIES.filter((c) => expenses.some((e) => e.category === c));
-  const hasFilter = filterCategory !== 'TODAS' || onlyUnpaid;
+  const hasFilter = filterCategory !== 'TODAS' || onlyUnpaid || onlyCard;
 
   const toggleWeek = (w: CycleWeek) =>
     setWeeks((prev) => (prev.includes(w) ? prev.filter((x) => x !== w) : [...prev, w].sort()));
@@ -111,6 +122,9 @@ export const ExpenseManager: React.FC<Props> = ({
       date,
       category,
       isFixed,
+      isCard,
+      cardName: isCard ? cardName : undefined,
+      installments: isCard ? Math.max(1, parseInt(installments) || 1) : 1,
     };
 
     setSaving(true);
@@ -245,6 +259,18 @@ export const ExpenseManager: React.FC<Props> = ({
               Conta fixa mensal
             </label>
 
+            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 cursor-pointer select-none bg-white/[0.03] px-2.5 py-1 rounded-xl border border-white/5">
+              <input
+                type="checkbox" checked={isCard}
+                onChange={(e) => setIsCard(e.target.checked)}
+                className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-[#ccff00] focus:ring-[#ccff00]"
+              />
+              <span className="flex items-center gap-1.5 text-white">
+                <CreditCard className="w-3.5 h-3.5 text-[#ccff00]" />
+                Compra no Cartão de Crédito
+              </span>
+            </label>
+
             {(!recurring || editingId) && (
               <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 cursor-pointer select-none">
                 <input
@@ -252,10 +278,35 @@ export const ExpenseManager: React.FC<Props> = ({
                   onChange={(e) => setPaidNow(e.target.checked)}
                   className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-[#ccff00] focus:ring-[#ccff00]"
                 />
-                Já foi pago
+                Já foi pago / Fatura quitada
               </label>
             )}
           </div>
+
+          {isCard && (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-zinc-950 to-[#14141d] border border-[#ccff00]/30 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-150">
+              <Field label="Nome do Cartão">
+                <input
+                  type="text"
+                  placeholder="Pierre Black, Nubank, Inter..."
+                  value={cardName}
+                  onChange={(e) => setCardName(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+
+              <Field label="Parcelas no Cartão (Ex: 1x, 3x, 10x)">
+                <input
+                  type="number"
+                  min="1"
+                  max="48"
+                  value={installments}
+                  onChange={(e) => setInstallments(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+            </div>
+          )}
 
           {!editingId && (
             <RecurrenceSelector
@@ -295,12 +346,15 @@ export const ExpenseManager: React.FC<Props> = ({
             </Chip>
           ))}
           <span className="w-px h-5 bg-white/10 shrink-0 mx-0.5" />
+          <Chip active={onlyCard} onClick={() => setOnlyCard((v) => !v)}>
+            💳 Só Cartão
+          </Chip>
           <Chip active={onlyUnpaid} onClick={() => setOnlyUnpaid((v) => !v)}>
             Só não pagos
           </Chip>
           {hasFilter && (
             <button
-              onClick={() => { setFilterCategory('TODAS'); setOnlyUnpaid(false); }}
+              onClick={() => { setFilterCategory('TODAS'); setOnlyUnpaid(false); setOnlyCard(false); }}
               className="text-[11px] text-zinc-500 hover:text-white flex items-center gap-1 shrink-0 cursor-pointer px-1"
             >
               <X className="w-3 h-3" /> Limpar
@@ -337,12 +391,18 @@ export const ExpenseManager: React.FC<Props> = ({
                   <span className={`text-sm font-bold ${item.paid ? 'text-zinc-500 line-through' : 'text-white'}`}>
                     {item.description}
                   </span>
+                  {item.isCard && (
+                    <Tag cls="bg-[#ccff00]/15 text-[#ccff00] border-[#ccff00]/30 font-mono">
+                      <CreditCard className="w-3 h-3" />
+                      {item.cardName || 'Cartão'} {item.installments && item.installments > 1 ? `(${item.installments}x)` : ''}
+                    </Tag>
+                  )}
                   {item.userName && users.length > 1 && (
                     <Tag cls="bg-white/5 text-zinc-300 border-white/10">
                       <User className="w-3 h-3" />{item.userName}
                     </Tag>
                   )}
-                  <Tag cls="bg-[#ccff00]/10 text-[#ccff00] border-[#ccff00]/20 font-mono">Sem. {item.week}</Tag>
+                  <Tag cls="bg-white/5 text-zinc-400 border-white/10 font-mono">Sem. {item.week}</Tag>
                   {item.isFixed && (
                     <Tag cls="bg-cyan-500/10 text-cyan-400 border-cyan-500/20">Fixa</Tag>
                   )}

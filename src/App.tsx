@@ -22,7 +22,7 @@ import { type CalendarEventData } from './lib/calendar';
 import type { ExtractedTransaction } from './lib/gemini';
 import { checkForAppUpdates, type UpdateInfo } from './lib/updater';
 
-type Tab = 'geral' | 'receitas' | 'dividas' | 'gastos';
+type Tab = 'geral' | 'cartao' | 'receitas' | 'dividas' | 'gastos';
 
 function App() {
   const {
@@ -210,8 +210,11 @@ function App() {
     selectedWeek,
   };
 
+  const cardExpenses = expenses.filter((e) => e.isCard);
+
   const tabs: { id: Tab; label: string; count?: number; icon: ReactNode }[] = [
     { id: 'geral', label: 'Visão Geral', icon: <Layers className="w-3.5 h-3.5" /> },
+    { id: 'cartao', label: 'Cartão Pierre', count: cardExpenses.length, icon: <CreditCard className="w-3.5 h-3.5 text-[#ccff00]" /> },
     { id: 'receitas', label: 'Receitas', count: incomes.length, icon: <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" /> },
     { id: 'dividas', label: 'Dívidas', count: debts.length, icon: <CreditCard className="w-3.5 h-3.5 text-amber-400" /> },
     { id: 'gastos', label: 'Gastos', count: expenses.length, icon: <ShoppingBag className="w-3.5 h-3.5 text-rose-400" /> },
@@ -414,7 +417,11 @@ function App() {
         ) : (
           <>
             {/* Saldo Real & Pierre Black Card */}
-            <CashflowSummary summary={summary} userName={currentUser.name} />
+            <CashflowSummary
+              summary={summary}
+              userName={currentUser.name}
+              onOpenCardDetails={() => setActiveTab('cartao')}
+            />
 
             {/* Painel de Gastos com Donut Circular e Heatmap */}
             <SpendingPanel
@@ -466,7 +473,43 @@ function App() {
               </div>
             </div>
 
-            {/* Gerenciadores */}
+            {activeTab === 'cartao' && (
+              <div className="space-y-6">
+                {/* Banner exclusivo do Cartão Pierre */}
+                <div className="rounded-3xl bg-gradient-to-r from-zinc-950 via-[#161622] to-black border border-[#ccff00]/30 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xl relative overflow-hidden">
+                  <div className="space-y-1 relative z-10">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#ccff00] font-mono">
+                      Fatura & Compras no Crédito
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                      Cartão Pierre Black · Limite & Lançamentos
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      Compras feitas no crédito separadas dos gastos à vista e contas fixas do dia a dia.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 relative z-10">
+                    <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-right">
+                      <span className="text-[10px] text-zinc-500 uppercase font-mono block">Fatura do Mês</span>
+                      <span className="text-base sm:text-lg font-black text-white font-mono">
+                        R$ {cardExpenses.reduce((a, b) => a + b.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <ExpenseManager
+                  {...managerProps}
+                  expenses={cardExpenses}
+                  onAddExpense={actions.addExpense}
+                  onUpdateExpense={actions.updateExpense}
+                  onTogglePaid={actions.toggleExpensePaid}
+                  onDeleteExpense={actions.deleteExpense}
+                />
+              </div>
+            )}
+
             {(activeTab === 'geral' || activeTab === 'receitas') && (
               <IncomeManager
                 {...managerProps}

@@ -9,7 +9,7 @@ interface Props {
   onOpenCardDetails?: () => void;
 }
 
-export const CashflowSummary: React.FC<Props> = ({ summary, userName = 'Usuário' }) => {
+export const CashflowSummary: React.FC<Props> = ({ summary, userName = 'Usuário', onOpenCardDetails }) => {
   const realOk = summary.balanceActual >= 0;
   const totalIn = summary.incomePlanned || 1;
   const pctRealizado = Math.min(100, Math.max(0, Math.round((summary.incomeActual / totalIn) * 100)));
@@ -47,14 +47,20 @@ export const CashflowSummary: React.FC<Props> = ({ summary, userName = 'Usuário
           </div>
 
           {/* Cartão de Crédito Físico Estilo Pierre Mastercard Black */}
-          <div className="w-full sm:w-72 h-44 rounded-2xl bg-gradient-to-br from-zinc-900 via-zinc-950 to-black border border-white/15 p-4 shadow-xl flex flex-col justify-between relative group hover:border-[#ccff00]/40 transition-all shrink-0">
+          <div
+            onClick={onOpenCardDetails}
+            role="button"
+            tabIndex={0}
+            title="Clique para gerenciar compras e fatura do Cartão Pierre"
+            className="w-full sm:w-72 h-44 rounded-2xl bg-gradient-to-br from-zinc-900 via-zinc-950 to-black border border-white/15 p-4 shadow-xl flex flex-col justify-between relative group hover:border-[#ccff00]/60 hover:shadow-[0_0_20px_rgba(204,255,0,0.15)] cursor-pointer transition-all shrink-0 active:scale-98"
+          >
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-sm font-black tracking-widest uppercase italic text-zinc-200">
+                <span className="text-sm font-black tracking-widest uppercase italic text-zinc-200 group-hover:text-[#ccff00] transition-colors">
                   Pierre
                 </span>
                 <span className="block text-[9px] text-[#ccff00] font-mono font-semibold tracking-wider">
-                  FLUXO PRO
+                  FLUXO PRO · ABRIR ABA ➔
                 </span>
               </div>
               <div className="flex items-center gap-1.5">

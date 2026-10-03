@@ -104,6 +104,9 @@ export function useFinance() {
         category: d.category,
         isFixed: d.is_fixed,
         paid: d.paid,
+        isCard: d.is_card ?? (d.description?.includes('[Cartão]') || d.description?.includes('💳')),
+        cardName: d.card_name ?? (d.description?.includes('Pierre') ? 'Pierre Black' : undefined),
+        installments: d.installments ?? 1,
       })));
 
       setIsSupabaseConnected(true);
@@ -546,19 +549,32 @@ export function useFinance() {
     const dates = expandRecurrence(item.date, item.recurrence);
     const seriesId = dates.length > 1 ? uuid() : null;
 
-    const rows = dates.map((date) => ({
-      user_id: item.userId ?? null,
-      user_name: user?.name ?? item.userName ?? null,
-      series_id: seriesId,
-      description: item.description.trim(),
-      amount: item.amount,
-      date,
-      category: item.category,
-      is_fixed: item.isFixed,
-      paid: item.paid,
-    }));
+    const rows = dates.map((date) => {
+      const cardTag = item.isCard ? ' 💳' : '';
+      return {
+        user_id: item.userId ?? null,
+        user_name: user?.name ?? item.userName ?? null,
+        series_id: seriesId,
+        description: `${item.description.trim()}${cardTag}`,
+        amount: item.amount,
+        date,
+        category: item.category,
+        is_fixed: item.isFixed,
+        paid: item.paid,
+        is_card: item.isCard ?? false,
+        card_name: item.cardName ?? null,
+        installments: item.installments ?? 1,
+      };
+    });
 
-    const { data, error } = await supabase.from('finance_expenses').insert(rows).select();
+    let { data, error } = await supabase.from('finance_expenses').insert(rows).select();
+    if (error && (error.message.includes('column') || error.code === '42703')) {
+      // Fallback gracioso se a coluna is_card ainda não foi criada no banco
+      const fallbackRows = rows.map(({ is_card, card_name, installments, ...rest }) => rest);
+      const fb = await supabase.from('finance_expenses').insert(fallbackRows).select();
+      data = fb.data;
+      error = fb.error;
+    }
     if (error) { setErrorMessage(error.message); console.error(error); return; }
 
     setExpenses((prev) => [...prev, ...(data ?? []).map((d): ExpenseItem => ({
@@ -574,6 +590,9 @@ export function useFinance() {
       category: d.category,
       isFixed: d.is_fixed,
       paid: d.paid,
+      isCard: d.is_card ?? item.isCard ?? false,
+      cardName: d.card_name ?? item.cardName,
+      installments: d.installments ?? item.installments ?? 1,
     }))]);
   };
 
@@ -588,21 +607,35 @@ export function useFinance() {
 
   const updateExpense = async (id: string, patch: EditExpense) => {
     const user = users.find((u) => u.id === patch.userId);
-    const { data, error } = await supabase
+    const updatePayload: any = {
+      user_id: patch.userId ?? null,
+      user_name: user?.name ?? patch.userName ?? null,
+      description: patch.description.trim(),
+      amount: patch.amount,
+      date: patch.date,
+      category: patch.category,
+      is_fixed: patch.isFixed,
+      paid: patch.paid,
+      is_card: patch.isCard ?? false,
+      card_name: patch.cardName ?? null,
+      installments: patch.installments ?? 1,
+    };
+
+    let { data, error } = await supabase
       .from('finance_expenses')
-      .update({
-        user_id: patch.userId ?? null,
-        user_name: user?.name ?? patch.userName ?? null,
-        description: patch.description.trim(),
-        amount: patch.amount,
-        date: patch.date,
-        category: patch.category,
-        is_fixed: patch.isFixed,
-        paid: patch.paid,
-      })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single();
+
+    if (error && (error.message.includes('column') || error.code === '42703')) {
+      delete updatePayload.is_card;
+      delete updatePayload.card_name;
+      delete updatePayload.installments;
+      const fb = await supabase.from('finance_expenses').update(updatePayload).eq('id', id).select().single();
+      data = fb.data;
+      error = fb.error;
+    }
 
     if (error || !data) { setErrorMessage(error?.message ?? 'Não deu para salvar a edição.'); return; }
 
@@ -618,6 +651,9 @@ export function useFinance() {
       category: data.category,
       isFixed: data.is_fixed,
       paid: data.paid,
+      isCard: data.is_card ?? patch.isCard,
+      cardName: data.card_name ?? patch.cardName,
+      installments: data.installments ?? patch.installments,
     } : e)));
   };
 
