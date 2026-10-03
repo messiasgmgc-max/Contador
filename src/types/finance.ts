@@ -131,3 +131,66 @@ export interface MonthSummary {
 export type EditIncome = Omit<IncomeItem, 'id' | 'week' | 'referenceMonth' | 'seriesId'>;
 export type EditDebt = Omit<DebtItem, 'id' | 'week' | 'referenceMonth' | 'seriesId'>;
 export type EditExpense = Omit<ExpenseItem, 'id' | 'week' | 'referenceMonth' | 'seriesId'>;
+
+/** ==============================================================================
+ * NOVAS ENTIDADES COMPETITIVAS (YNAB, Mobills, Monefy, Fortune City)
+ * ============================================================================== */
+
+/** 1. Zero-Based Budgeting (YNAB Envelope) */
+export interface BudgetEnvelope {
+  id: string;
+  userId?: string;
+  monthKey: MonthKey;
+  category: ExpenseCategory | string;
+  name: string;
+  allocatedAmount: number; // Teto alocado para o envelope
+  spentAmount: number;     // Gasto real calculado
+  color?: string;
+  icon?: string;
+}
+
+/** 2. Metas Financeiras (Mobills / Organizze) */
+export interface FinancialGoal {
+  id: string;
+  userId?: string;
+  title: string;
+  targetAmount: number;
+  currentAmount: number;
+  targetDate: string; // YYYY-MM-DD
+  category: string;
+  completed: boolean;
+  color?: string;
+}
+
+/** 3. Gamificação & Streaks (Fortune City) */
+export interface UserGamification {
+  streakDays: number;
+  lastActiveDate: string; // YYYY-MM-DD
+  points: number;
+  level: number;
+  achievements: {
+    id: string;
+    title: string;
+    description: string;
+    unlockedAt?: string;
+    icon: string;
+  }[];
+}
+
+/** 4. Projeção Diária de Caixa Futuro (Mobills) */
+export interface CashflowForecastDay {
+  date: string; // YYYY-MM-DD
+  dayLabel: string;
+  startingBalance: number;
+  inflow: number;
+  outflow: number;
+  closingBalance: number;
+  isProjected: boolean;
+  events: {
+    type: 'income' | 'debt' | 'expense';
+    description: string;
+    amount: number;
+    paidOrReceived: boolean;
+  }[];
+}
+

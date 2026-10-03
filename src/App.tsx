@@ -9,13 +9,18 @@ import { IncomeManager } from './components/IncomeManager';
 import { DebtManager } from './components/DebtManager';
 import { ExpenseManager } from './components/ExpenseManager';
 import { CardManager } from './components/CardManager';
+import { ZeroBasedBudgetingView } from './components/ZeroBasedBudgetingView';
+import { QuickExpenseNumpad } from './components/QuickExpenseNumpad';
+import { GamificationAndGoalsPanel } from './components/GamificationAndGoalsPanel';
+import { CashflowForecastView } from './components/CashflowForecastView';
 import { LoginScreen } from './components/LoginScreen';
 import { inputCls, cancelCls, Field } from './components/ui';
 import { monthLabel } from './lib/period';
 import type { WeekNumber, UserProfile } from './types/finance';
 import {
   ArrowUpRight, CreditCard, ShoppingBag, Layers,
-  RefreshCw, LogOut, Edit3, TriangleAlert, Calendar, Sparkles, Download, ArrowDownCircle
+  RefreshCw, LogOut, Edit3, TriangleAlert, Calendar, Sparkles, Download, ArrowDownCircle,
+  PieChart, TrendingUp, Trophy, Zap, X
 } from 'lucide-react';
 import { GeminiAssistantModal } from './components/GeminiAssistantModal';
 import { CalendarExportModal } from './components/CalendarExportModal';
@@ -23,13 +28,14 @@ import { type CalendarEventData } from './lib/calendar';
 import type { ExtractedTransaction } from './lib/gemini';
 import { checkForAppUpdates, type UpdateInfo } from './lib/updater';
 
-type Tab = 'geral' | 'cartao' | 'receitas' | 'dividas' | 'gastos';
+type Tab = 'geral' | 'cartao' | 'envelopes' | 'previsao' | 'metas' | 'receitas' | 'dividas' | 'gastos';
 
 function App() {
   const {
     users, setActiveUserId, addUser, updateUser, upgradePasswordIfLegacy,
     monthKey, setMonthKey, availableMonths,
     incomes, debts, expenses, weeks, summary, spending, expensesByCategory,
+    zeroBudget, cashflowForecast, setEnvelopes, goals, addGoal, updateGoalProgress, gamification,
     isLoading, isSyncing, isSupabaseConnected, errorMessage,
     reloadFromSupabase, actions,
   } = useFinance();
@@ -47,6 +53,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('geral');
   const [showEdit, setShowEdit] = useState(false);
   const [showGemini, setShowGemini] = useState(false);
+  const [showQuickNumpad, setShowQuickNumpad] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEventData[]>([]);
   const [editName, setEditName] = useState('');
@@ -170,6 +177,17 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowQuickNumpad((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleLogout = () => {
     setCurrentUser(null);
     setActiveUserId('ALL');
@@ -215,7 +233,10 @@ function App() {
 
   const tabs: { id: Tab; label: string; count?: number; icon: ReactNode }[] = [
     { id: 'geral', label: 'Visão Geral', icon: <Layers className="w-3.5 h-3.5" /> },
-    { id: 'cartao', label: 'Cartão de Crédito', count: cardDebts.length, icon: <CreditCard className="w-3.5 h-3.5 text-[#ccff00]" /> },
+    { id: 'envelopes', label: 'Envelopes (YNAB)', icon: <PieChart className="w-3.5 h-3.5 text-[#ccff00]" /> },
+    { id: 'previsao', label: 'Previsão Fluxo', icon: <TrendingUp className="w-3.5 h-3.5 text-blue-400" /> },
+    { id: 'metas', label: 'Metas & Hábitos', icon: <Trophy className="w-3.5 h-3.5 text-amber-400" /> },
+    { id: 'cartao', label: 'Cartão de Crédito', count: cardDebts.length, icon: <CreditCard className="w-3.5 h-3.5 text-purple-400" /> },
     { id: 'receitas', label: 'Receitas', count: incomes.length, icon: <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" /> },
     { id: 'dividas', label: 'Dívidas', count: debts.length, icon: <CreditCard className="w-3.5 h-3.5 text-amber-400" /> },
     { id: 'gastos', label: 'Gastos', count: expenses.length, icon: <ShoppingBag className="w-3.5 h-3.5 text-rose-400" /> },
@@ -257,8 +278,20 @@ function App() {
             </div>
           </div>
 
-          {/* Quick Actions (Assistente IA, Sync, Logout) */}
+          {/* Quick Actions (Lançamento Rápido, Assistente IA, Sync, Logout) */}
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowQuickNumpad(true)}
+              title="Lançamento Rápido (Ctrl + K)"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-95 text-white text-xs font-bold border border-white/15 cursor-pointer transition-all"
+            >
+              <Zap className="w-3.5 h-3.5 text-[#ccff00]" />
+              <span className="hidden sm:inline">Lançar Rápido</span>
+              <kbd className="hidden md:inline text-[9px] bg-black/40 text-zinc-400 font-mono px-1.5 py-0.5 rounded border border-white/10">
+                ⌘K
+              </kbd>
+            </button>
+
             <button
               onClick={() => setShowGemini(true)}
               title="Assistente Financeiro IA"
@@ -472,6 +505,29 @@ function App() {
               </div>
             </div>
 
+            {activeTab === 'envelopes' && (
+              <ZeroBasedBudgetingView
+                budget={zeroBudget}
+                onSaveEnvelopes={setEnvelopes}
+              />
+            )}
+
+            {activeTab === 'previsao' && (
+              <CashflowForecastView
+                forecast={cashflowForecast}
+                currentCash={summary.balanceActual}
+              />
+            )}
+
+            {activeTab === 'metas' && (
+              <GamificationAndGoalsPanel
+                gamification={gamification}
+                goals={goals}
+                onAddGoal={addGoal}
+                onUpdateGoalProgress={updateGoalProgress}
+              />
+            )}
+
             {activeTab === 'cartao' && (
               <CardManager
                 {...managerProps}
@@ -519,25 +575,61 @@ function App() {
         )}
       </main>
 
+      {/* Modal de Lançamento Rápido (Estilo Monefy / Notion) */}
+      {showQuickNumpad && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+          <div className="relative w-full max-w-md">
+            <button
+              onClick={() => setShowQuickNumpad(false)}
+              className="absolute -top-11 right-0 text-zinc-400 hover:text-white p-2 cursor-pointer flex items-center gap-1 text-xs font-mono"
+            >
+              <span>ESC</span>
+              <X className="w-4 h-4" />
+            </button>
+            <QuickExpenseNumpad
+              defaultUserId={currentUser.id}
+              userName={currentUser.name}
+              onAddExpense={async (item) => {
+                await actions.addExpense(item);
+                setShowQuickNumpad(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Floating Bottom Nav para Mobile */}
-      <nav className="sm:hidden fixed bottom-4 left-4 right-4 z-50 bg-[#161620]/90 backdrop-blur-xl border border-white/10 rounded-3xl px-3 py-2 flex items-center justify-around shadow-2xl">
-        {tabs.map((t) => (
+      <nav className="sm:hidden fixed bottom-4 left-3 right-3 z-50 bg-[#161620]/95 backdrop-blur-xl border border-white/10 rounded-3xl px-2 py-2 flex items-center justify-between shadow-2xl overflow-x-auto no-scrollbar">
+        {tabs.slice(0, 5).map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
-            className={`flex flex-col items-center gap-1 py-1 px-2 rounded-2xl text-[10px] uppercase font-bold tracking-wider transition-all ${
+            className={`flex flex-col items-center gap-1 py-1 px-1.5 rounded-2xl text-[9px] uppercase font-bold tracking-wider transition-all shrink-0 ${
               activeTab === t.id ? 'text-[#ccff00] scale-105' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
             {t.icon}
-            <span>{t.label.split(' ')[0]}</span>
+            <span className="truncate max-w-[48px]">{t.label.split(' ')[0]}</span>
           </button>
         ))}
+
+        {/* Botão Rápido Numpad */}
+        <button
+          onClick={() => setShowQuickNumpad(true)}
+          className="flex flex-col items-center gap-1 py-1 px-1.5 rounded-2xl text-[9px] uppercase font-black tracking-wider text-white shrink-0"
+        >
+          <div className="w-6 h-6 rounded-full bg-white/10 border border-white/20 text-[#ccff00] flex items-center justify-center">
+            <Zap className="w-3.5 h-3.5" />
+          </div>
+          <span>Lançar</span>
+        </button>
+
+        {/* Botão IA */}
         <button
           onClick={() => setShowGemini(true)}
-          className="flex flex-col items-center gap-1 py-1 px-2 rounded-2xl text-[10px] uppercase font-black tracking-wider text-[#ccff00]"
+          className="flex flex-col items-center gap-1 py-1 px-1.5 rounded-2xl text-[9px] uppercase font-black tracking-wider text-[#ccff00] shrink-0"
         >
-          <div className="w-5 h-5 rounded-full bg-[#ccff00] text-black flex items-center justify-center text-[10px] font-black">
+          <div className="w-6 h-6 rounded-full bg-[#ccff00] text-black flex items-center justify-center text-[10px] font-black">
             <Sparkles className="w-3 h-3 text-black fill-black" />
           </div>
           <span>IA</span>

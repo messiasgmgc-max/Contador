@@ -4,6 +4,7 @@ import type {
   NewIncome, NewDebt, NewExpense,
   EditIncome, EditDebt, EditExpense,
   WeekSummary, MonthSummary, CycleWeek, MonthKey,
+  BudgetEnvelope, FinancialGoal, UserGamification,
 } from '../types/finance';
 import { supabase } from '../lib/supabase';
 import { profileHash, needsRehash } from '../lib/hash';
@@ -12,6 +13,12 @@ import {
   weekRangeLabel, matchesScope, type PeriodScope,
 } from '../lib/period';
 import { expandRecurrence, addMonthsToDate, uuid } from '../lib/recurrence';
+import {
+  calculateZeroBasedBudget,
+  generateCashflowForecast,
+  loadLocalGamification,
+  recordActivityStreak,
+} from '../lib/financeEngine';
 
 /**
  * cycle_week e reference_month são COLUNAS GERADAS no Postgres. Se forem
@@ -27,6 +34,38 @@ export function useFinance() {
   const [incomes, setIncomes] = useState<IncomeItem[]>([]);
   const [debts, setDebts] = useState<DebtItem[]>([]);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
+
+  // 1. Envelopes YNAB (com persistência local e sync)
+  const [envelopes, setEnvelopes] = useState<BudgetEnvelope[]>(() => {
+    try {
+      const saved = localStorage.getItem('finance_envelopes');
+      return saved ? JSON.parse(saved) : [
+        { id: 'env_1', monthKey: currentMonthKey(), category: 'Alimentacao', name: 'Alimentação & Mercado', allocatedAmount: 1200, spentAmount: 0 },
+        { id: 'env_2', monthKey: currentMonthKey(), category: 'Moradia', name: 'Aluguel & Contas da Casa', allocatedAmount: 1500, spentAmount: 0 },
+        { id: 'env_3', monthKey: currentMonthKey(), category: 'Transporte', name: 'Combustível & Transporte', allocatedAmount: 400, spentAmount: 0 },
+        { id: 'env_4', monthKey: currentMonthKey(), category: 'Lazer', name: 'Restaurantes & Lazer', allocatedAmount: 500, spentAmount: 0 },
+        { id: 'env_5', monthKey: currentMonthKey(), category: 'Servicos', name: 'Internet & Assinaturas', allocatedAmount: 250, spentAmount: 0 },
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  // 2. Metas Financeiras (Mobills)
+  const [goals, setGoals] = useState<FinancialGoal[]>(() => {
+    try {
+      const saved = localStorage.getItem('finance_goals');
+      return saved ? JSON.parse(saved) : [
+        { id: 'goal_1', title: 'Reserva de Emergência', targetAmount: 10000, currentAmount: 3200, targetDate: '2026-12-31', category: 'Reserva', completed: false },
+        { id: 'goal_2', title: 'Viagem de Fim de Ano', targetAmount: 4000, currentAmount: 1500, targetDate: '2026-11-15', category: 'Viagem', completed: false },
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  // 3. Gamificação Fortune City (Streaks e Badges)
+  const [gamification, setGamification] = useState<UserGamification>(() => loadLocalGamification());
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -225,6 +264,16 @@ export function useFinance() {
       .map(([category, total]) => ({ category, total }))
       .sort((a, b) => b.total - a.total);
   }, [monthExpenses]);
+
+  /** 1. Cálculo Zero-Based Budgeting (YNAB) */
+  const zeroBudget = useMemo(() => {
+    return calculateZeroBasedBudget(monthIncomes, monthExpenses, envelopes);
+  }, [monthIncomes, monthExpenses, envelopes]);
+
+  /** 2. Projeção de Fluxo de Caixa Futuro (Mobills) */
+  const cashflowForecast = useMemo(() => {
+    return generateCashflowForecast(monthKey, summary.balanceActual, monthIncomes, monthDebts, monthExpenses);
+  }, [monthKey, summary.balanceActual, monthIncomes, monthDebts, monthExpenses]);
 
   // ------------------------------------------------------------- perfis ----
 
@@ -749,6 +798,43 @@ export function useFinance() {
     spending,
     expensesByCategory,
 
+    // Novas funcionalidades competitivas
+    zeroBudget,
+    cashflowForecast,
+    envelopes,
+    setEnvelopes: (newEnvelopes: BudgetEnvelope[]) => {
+      setEnvelopes(newEnvelopes);
+      try { localStorage.setItem('finance_envelopes', JSON.stringify(newEnvelopes)); } catch {}
+    },
+    goals,
+    addGoal: (newGoal: Omit<FinancialGoal, 'id' | 'completed'>) => {
+      const created: FinancialGoal = {
+        ...newGoal,
+        id: `goal_${Date.now()}`,
+        completed: false,
+      };
+      setGoals((prev) => {
+        const updated = [...prev, created];
+        try { localStorage.setItem('finance_goals', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      setGamification((prev) => recordActivityStreak(prev));
+    },
+    updateGoalProgress: (goalId: string, addedAmount: number) => {
+      setGoals((prev) => {
+        const updated = prev.map((g) => {
+          if (g.id !== goalId) return g;
+          const next = g.currentAmount + addedAmount;
+          return { ...g, currentAmount: next, completed: next >= g.targetAmount };
+        });
+        try { localStorage.setItem('finance_goals', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      setGamification((prev) => recordActivityStreak(prev));
+    },
+    gamification,
+    recordActivity: () => setGamification((prev) => recordActivityStreak(prev)),
+
     isLoading,
     isSyncing,
     isSupabaseConnected,
@@ -756,15 +842,27 @@ export function useFinance() {
     reloadFromSupabase: loadFromSupabase,
 
     actions: {
-      addIncome,
+      addIncome: async (item: NewIncome) => {
+        await addIncome(item);
+        setGamification((prev) => recordActivityStreak(prev));
+      },
       toggleIncomeReceived,
       updateIncome,
       deleteIncome,
-      addDebt,
-      payDebtInstallment,
+      addDebt: async (item: NewDebt) => {
+        await addDebt(item);
+        setGamification((prev) => recordActivityStreak(prev));
+      },
+      payDebtInstallment: async (id: string) => {
+        await payDebtInstallment(id);
+        setGamification((prev) => recordActivityStreak(prev));
+      },
       updateDebt,
       deleteDebt,
-      addExpense,
+      addExpense: async (item: NewExpense) => {
+        await addExpense(item);
+        setGamification((prev) => recordActivityStreak(prev));
+      },
       toggleExpensePaid,
       updateExpense,
       deleteExpense,

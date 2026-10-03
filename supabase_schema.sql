@@ -466,3 +466,41 @@ CREATE POLICY "acesso_total_expenses" ON public.finance_expenses FOR ALL USING (
 INSERT INTO public.finance_users (name, avatar_color, is_default)
 SELECT 'Meu Perfil', 'blue', TRUE
  WHERE NOT EXISTS (SELECT 1 FROM public.finance_users);
+
+-- ==============================================================================
+-- 10. NOVAS TABELAS: ENVELOPES (YNAB) & METAS (MOBILLS)
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS public.finance_envelopes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.finance_users(id) ON DELETE CASCADE,
+    month_key VARCHAR(7) NOT NULL, -- 'YYYY-MM'
+    category TEXT NOT NULL,
+    name TEXT NOT NULL,
+    allocated_amount NUMERIC(14,2) NOT NULL DEFAULT 0.00,
+    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()),
+    updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW())
+);
+
+CREATE TABLE IF NOT EXISTS public.finance_goals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.finance_users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    target_amount NUMERIC(14,2) NOT NULL,
+    current_amount NUMERIC(14,2) NOT NULL DEFAULT 0.00,
+    target_date DATE NOT NULL,
+    category TEXT DEFAULT 'Geral',
+    completed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()),
+    updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW())
+);
+
+ALTER TABLE public.finance_envelopes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.finance_goals ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "acesso_total_envelopes" ON public.finance_envelopes;
+DROP POLICY IF EXISTS "acesso_total_goals" ON public.finance_goals;
+
+CREATE POLICY "acesso_total_envelopes" ON public.finance_envelopes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "acesso_total_goals" ON public.finance_goals FOR ALL USING (true) WITH CHECK (true);
+
