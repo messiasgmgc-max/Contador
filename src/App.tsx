@@ -450,14 +450,16 @@ function App() {
           </div>
         ) : (
           <>
-            {/* Saldo Real e Métricas de Balanço */}
-            <CashflowSummary
-              summary={summary}
-              onNavigateTab={(tab) => {
-                setShowQuickNumpad(false);
-                setActiveTab(tab);
-              }}
-            />
+            {/* Saldo Real e Métricas de Balanço apenas na Visão Geral */}
+            {activeTab === 'geral' && (
+              <CashflowSummary
+                summary={summary}
+                onNavigateTab={(tab) => {
+                  setShowQuickNumpad(false);
+                  setActiveTab(tab);
+                }}
+              />
+            )}
 
             {/* Quando estiver na Visão Geral, exibe os painéis analíticos */}
             {activeTab === 'geral' && (
