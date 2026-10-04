@@ -76,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
 
-        // Busca dados específicos para despesas pagas e dívidas pagas caso queira granular
+        // Busca dados específicos do mês para despesas pagas e dívidas pagas
         const { data: monthExpenses } = await supabase
           .from('finance_expenses')
           .select('amount, paid')
@@ -97,20 +97,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           totalDebtsPaid = monthDebts.filter(d => d.status === 'Pago').reduce((acc, d) => acc + Number(d.installment_amount), 0);
         }
 
+        // 1. Calcular o Saldo de Meses Anteriores (previousBalance):
+        // Todos os lançamentos passados realizados onde reference_month < refMonth e user_id = userId
+        const [pastIncomesRes, pastDebtsRes, pastExpensesRes] = await Promise.all([
+          supabase
+            .from('finance_incomes')
+            .select('amount')
+            .eq('user_id', userId)
+            .lt('reference_month', refMonth)
+            .eq('received', true),
+          supabase
+            .from('finance_debts')
+            .select('installment_amount')
+            .eq('user_id', userId)
+            .lt('reference_month', refMonth)
+            .eq('status', 'Pago'),
+          supabase
+            .from('finance_expenses')
+            .select('amount')
+            .eq('user_id', userId)
+            .lt('reference_month', refMonth)
+            .eq('paid', true),
+        ]);
+
+        const pastIncomeTotal = (pastIncomesRes.data || []).reduce((acc, i) => acc + Number(i.amount || 0), 0);
+        const pastDebtsTotal = (pastDebtsRes.data || []).reduce((acc, d) => acc + Number(d.installment_amount || 0), 0);
+        const pastExpensesTotal = (pastExpensesRes.data || []).reduce((acc, e) => acc + Number(e.amount || 0), 0);
+        const previousBalance = pastIncomeTotal - (pastDebtsTotal + pastExpensesTotal);
+
+        // 2. Saldos do mês e totais acumulados:
+        const monthBalanceActual = totalIncomeActual - (totalDebtsPaid + totalExpensesPaid);
+        const monthBalancePlanned = totalIncomePlanned - (totalDebts + totalExpenses);
+        const cumulativeBalanceActual = previousBalance + monthBalanceActual;
+        const cumulativeBalancePlanned = previousBalance + monthBalancePlanned;
+
         return res.status(200).json({
           ok: true,
           month: currentMonth,
           user: users?.find(u => u.id === userId)?.name || defaultUser.name,
           user_id: userId,
           totals: {
+            previous_balance: previousBalance,
             total_income_planned: totalIncomePlanned,
             total_income_actual: totalIncomeActual,
             total_expenses: totalExpenses,
             total_expenses_paid: totalExpensesPaid,
             total_debts: totalDebts,
             total_debts_paid: totalDebtsPaid,
-            balance_planned: balancePlanned,
-            balance_actual: balanceActual,
+            month_balance_planned: monthBalancePlanned,
+            month_balance_actual: monthBalanceActual,
+            balance_planned: cumulativeBalancePlanned,
+            balance_actual: cumulativeBalanceActual,
           },
           weeks: weeksDetail,
           summary_by_week: summaryData || [],
